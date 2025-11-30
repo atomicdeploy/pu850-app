@@ -150,17 +150,25 @@ public class OnboardingActivity extends AppCompatActivity {
             boolean isSelected = i == position;
             indicator.setSelected(isSelected);
             
-            // Animate width change
+            // Animate width change using ValueAnimator
+            int currentWidth = indicator.getWidth();
             int targetWidth = isSelected ? dpToPx(24) : dpToPx(8);
-            ObjectAnimator widthAnimator = ObjectAnimator.ofInt(
-                    indicator, "minimumWidth", indicator.getWidth(), targetWidth
-            );
-            widthAnimator.setDuration(200);
-            widthAnimator.start();
             
-            ViewGroup.LayoutParams params = indicator.getLayoutParams();
-            params.width = targetWidth;
-            indicator.setLayoutParams(params);
+            if (currentWidth != targetWidth && currentWidth > 0) {
+                android.animation.ValueAnimator widthAnimator = android.animation.ValueAnimator.ofInt(currentWidth, targetWidth);
+                widthAnimator.setDuration(200);
+                final View indicatorView = indicator;
+                widthAnimator.addUpdateListener(animation -> {
+                    ViewGroup.LayoutParams params = indicatorView.getLayoutParams();
+                    params.width = (int) animation.getAnimatedValue();
+                    indicatorView.setLayoutParams(params);
+                });
+                widthAnimator.start();
+            } else {
+                ViewGroup.LayoutParams params = indicator.getLayoutParams();
+                params.width = targetWidth;
+                indicator.setLayoutParams(params);
+            }
         }
     }
 

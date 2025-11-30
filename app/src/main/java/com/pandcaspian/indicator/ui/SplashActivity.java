@@ -25,8 +25,9 @@ import com.pandcaspian.indicator.MainActivity;
 import com.pandcaspian.indicator.R;
 
 /**
- * Elegant splash screen with animated Pand Caspian logo
- * The logo draws its outline first, then fills in beautifully
+ * Splash screen displaying the animated Pand Caspian logo.
+ * The logo animation uses an AnimatedVectorDrawable that draws the outline
+ * sequentially, then fills in the shape with a smooth alpha transition.
  */
 public class SplashActivity extends AppCompatActivity {
 

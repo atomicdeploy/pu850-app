@@ -7,16 +7,17 @@
     android:padding="32dp">
 
     <!-- Illustration/Icon area with glow -->
+    <!-- Glow effect behind icon card -->
     <View
         android:id="@+id/glowEffect"
         android:layout_width="280dp"
         android:layout_height="280dp"
         android:background="@drawable/bg_glow_circle"
         android:alpha="0.5"
-        app:layout_constraintBottom_toTopOf="@id/featureIcon"
-        app:layout_constraintEnd_toEndOf="@id/featureIcon"
-        app:layout_constraintStart_toStartOf="@id/featureIcon"
-        app:layout_constraintTop_toTopOf="@id/featureIcon" />
+        app:layout_constraintBottom_toBottomOf="@id/iconCard"
+        app:layout_constraintEnd_toEndOf="@id/iconCard"
+        app:layout_constraintStart_toStartOf="@id/iconCard"
+        app:layout_constraintTop_toTopOf="@id/iconCard" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/iconCard"
