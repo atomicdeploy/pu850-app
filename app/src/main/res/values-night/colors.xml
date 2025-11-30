@@ -1,27 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <color name="colorBackground">#232424</color>
-    <color name="colorForeground">#F6F6F1</color>
-    <color name="colorSecondary">#383c4f</color>
-    <color name="colorGrayText">#636e72</color>
+    <!-- Primary Brand Colors - Dark Theme -->
+    <color name="colorBackground">#0F172A</color>
+    <color name="colorBackgroundSecondary">#1E293B</color>
+    <color name="colorForeground">#F8FAFC</color>
+    <color name="colorSecondary">#94A3B8</color>
+    <color name="colorGrayText">#64748B</color>
 
-    <color name="colorAccent">#8B98CE</color>
-    <color name="shadowColor">#27000000</color>
+    <!-- Premium Accent Colors -->
+    <color name="colorPrimary">#818CF8</color>
+    <color name="colorPrimaryDark">#6366F1</color>
+    <color name="colorPrimaryLight">#A5B4FC</color>
+    <color name="colorAccent">#A78BFA</color>
+    <color name="colorAccentLight">#C4B5FD</color>
+    
+    <!-- Gradient Colors -->
+    <color name="gradientStart">#818CF8</color>
+    <color name="gradientMiddle">#A78BFA</color>
+    <color name="gradientEnd">#F472B6</color>
+    
+    <color name="gradientCardStart">#1E293B</color>
+    <color name="gradientCardEnd">#0F172A</color>
+    
+    <!-- Glass Effect Colors -->
+    <color name="glassBackground">#331E293B</color>
+    <color name="glassBorder">#1AFFFFFF</color>
+    
+    <!-- Shadow and Depth -->
+    <color name="shadowColor">#40000000</color>
+    <color name="shadowColorLight">#20000000</color>
+    <color name="elevatedBackground">#1E293B</color>
 
     <!-- Button colors -->
-    <color name="colorButtonBackground">#2d3436</color>
-    <color name="colorButtonForeground">#8B98CE</color>
+    <color name="colorButtonBackground">#6366F1</color>
+    <color name="colorButtonBackgroundPressed">#818CF8</color>
+    <color name="colorButtonForeground">#FFFFFF</color>
+    <color name="colorButtonSecondary">#334155</color>
+    <color name="colorButtonSecondaryText">#E2E8F0</color>
 
-    <color name="colorProgressBarBackground">#338B98CE</color>
+    <!-- Progress Bar -->
+    <color name="colorProgressBarBackground">#334155</color>
+    <color name="colorProgressBarFill">#818CF8</color>
 
-    <!-- Panel colors -->
-    <color name="colorPanelBackground">#383c4f</color>
-    <color name="colorPanelText">#aab5df</color>
+    <!-- Panel/Card colors -->
+    <color name="colorPanelBackground">#1E293B</color>
+    <color name="colorPanelBackgroundLight">#334155</color>
+    <color name="colorPanelText">#F8FAFC</color>
+    <color name="colorPanelTextSecondary">#CBD5E1</color>
+    
+    <!-- Display Panel Gradient -->
+    <color name="displayGradientStart">#1E293B</color>
+    <color name="displayGradientEnd">#0F172A</color>
 
-    <color name="colorDarkPaper">#636e72</color>
+    <color name="colorDarkPaper">#334155</color>
 
     <!-- State colors -->
-    <color name="colorError">#ff4757</color>
+    <color name="colorError">#F87171</color>
+    <color name="colorErrorLight">#7F1D1D</color>
+    <color name="colorSuccess">#34D399</color>
+    <color name="colorSuccessLight">#064E3B</color>
+    <color name="colorWarning">#FBBF24</color>
+    <color name="colorWarningLight">#78350F</color>
+    <color name="colorInfo">#60A5FA</color>
+    <color name="colorInfoLight">#1E3A8A</color>
+    
+    <!-- Connection Status Colors -->
+    <color name="colorConnected">#34D399</color>
+    <color name="colorDisconnected">#F87171</color>
+    <color name="colorConnecting">#FBBF24</color>
+    
+    <!-- Ripple Effect -->
+    <color name="rippleColor">#33818CF8</color>
+    <color name="rippleColorLight">#1A818CF8</color>
+    
+    <!-- Divider -->
+    <color name="dividerColor">#334155</color>
+    
+    <!-- Overlay -->
+    <color name="overlayDark">#CC000000</color>
+    <color name="overlayLight">#1AFFFFFF</color>
 
 </resources>

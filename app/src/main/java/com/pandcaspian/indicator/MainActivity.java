@@ -2079,6 +2079,8 @@ public class MainActivity extends AppCompatActivity {
 		buttonSettings.setText(R.string.SetIP);
 		updateFunctionButtonState(buttonSettings, true);
 
+		// Setup card click listeners to delegate to buttons
+		setupCardClickDelegates();
 
 		Button buttonDownload = (Button) findViewById(R.id.buttonDevelop);
 		buttonDownload.setOnClickListener(new View.OnClickListener() {
