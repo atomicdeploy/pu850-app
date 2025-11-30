@@ -12,6 +12,39 @@
     <string name="splash_tagline">Pand Caspian</string>
     <string name="splash_version">Version 2.0</string>
     
+    <!-- Onboarding Screen -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get Started</string>
+    
+    <!-- Onboarding Page 1: Real-time Monitoring -->
+    <string name="onboarding_title_1">Real-time Monitoring</string>
+    <string name="onboarding_desc_1">Connect wirelessly to your PU850 indicator and monitor weight measurements in real-time from anywhere in your facility.</string>
+    <string name="onboarding_highlight_1_1">Instant weight updates via WiFi</string>
+    <string name="onboarding_highlight_1_2">Stable and reliable connection</string>
+    <string name="onboarding_highlight_1_3">Works across your network</string>
+    
+    <!-- Onboarding Page 2: Remote Management -->
+    <string name="onboarding_title_2">Remote Management</string>
+    <string name="onboarding_desc_2">Take full control of your weighing device remotely. Tare, zero, and configure settings without touching the indicator.</string>
+    <string name="onboarding_highlight_2_1">Remote tare and zero functions</string>
+    <string name="onboarding_highlight_2_2">Configure device settings</string>
+    <string name="onboarding_highlight_2_3">Power management controls</string>
+    
+    <!-- Onboarding Page 3: Reports & Export -->
+    <string name="onboarding_title_3">Reports &amp; Export</string>
+    <string name="onboarding_desc_3">Generate detailed reports and export your weighing data to Excel format for analysis, record-keeping, and compliance.</string>
+    <string name="onboarding_highlight_3_1">Digital receipts and reports</string>
+    <string name="onboarding_highlight_3_2">Export to Excel spreadsheets</string>
+    <string name="onboarding_highlight_3_3">Easy sharing and archiving</string>
+    
+    <!-- Onboarding Page 4: Professional Features -->
+    <string name="onboarding_title_4">Professional Features</string>
+    <string name="onboarding_desc_4">Experience industrial-grade precision with professional features designed for demanding weighing applications.</string>
+    <string name="onboarding_highlight_4_1">High precision measurements</string>
+    <string name="onboarding_highlight_4_2">Multi-language support</string>
+    <string name="onboarding_highlight_4_3">Intuitive modern interface</string>
+    
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>
     <string name="settings_connection">Connection</string>

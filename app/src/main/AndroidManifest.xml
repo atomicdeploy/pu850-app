@@ -62,6 +62,12 @@
             android:theme="@style/Theme.PU850"
             android:parentActivityName=".MainActivity" />
             
+        <!-- Onboarding Activity -->
+        <activity
+            android:name=".ui.OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PU850" />
+            
     </application>
 
 </manifest>
