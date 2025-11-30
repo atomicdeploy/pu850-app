@@ -1,0 +1,839 @@
+package com.pandcaspian.indicator.utils;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.os.Environment;
+import android.os.IBinder;
+import android.os.storage.StorageManager;
+import android.text.TextUtils;
+import android.util.Log;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.StringTokenizer;
+
+public class StorageUtils {
+
+    private static final String TAG = "StorageUtils";
+
+
+
+    public static class StorageInfo {
+
+        public final String path;
+        public final boolean internal;
+        public final boolean readonly;
+        public final int display_number;
+
+        StorageInfo(String path, boolean internal, boolean readonly, int display_number) {
+            this.path = path;
+            this.internal = internal;
+            this.readonly = readonly;
+            this.display_number = display_number;
+        }
+
+        public String getDisplayName() {
+            StringBuilder res = new StringBuilder();
+            if (internal) {
+                res.append("Internal SD card");
+            } else if (display_number > 1) {
+                res.append("SD card " + display_number);
+            } else {
+                res.append("SD card");
+            }
+            if (readonly) {
+                res.append(" (Read only)");
+            }
+            return res.toString();
+        }
+    }
+
+    public static List<StorageInfo> getStorageList() {
+
+        List<StorageInfo> list = new ArrayList<StorageInfo>();
+        String def_path = Environment.getExternalStorageDirectory().getPath();
+        boolean def_path_internal = !Environment.isExternalStorageRemovable();
+        String def_path_state = Environment.getExternalStorageState();
+        boolean def_path_available = def_path_state.equals(Environment.MEDIA_MOUNTED)
+                || def_path_state.equals(Environment.MEDIA_MOUNTED_READ_ONLY);
+        boolean def_path_readonly = Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED_READ_ONLY);
+        BufferedReader buf_reader = null;
+
+        try {
+
+            HashSet<String> paths = new HashSet<String>();
+            buf_reader = new BufferedReader(new FileReader("/proc/mounts"));
+
+            String line;
+            int cur_display_number = 1;
+
+            Log.d(TAG, "/proc/mounts");
+            while ((line = buf_reader.readLine()) != null) {
+                Log.d(TAG, line);
+                if (line.contains("vfat") || line.contains("/mnt")) {
+                    StringTokenizer tokens = new StringTokenizer(line, " ");
+                    String unused = tokens.nextToken(); //device
+                    String mount_point = tokens.nextToken(); //mount point
+                    if (paths.contains(mount_point)) {
+                        continue;
+                    }
+                    unused = tokens.nextToken(); //file system
+                    List<String> flags = Arrays.asList(tokens.nextToken().split(",")); //flags
+                    boolean readonly = flags.contains("ro");
+
+                    if (mount_point.equals(def_path)) {
+                        paths.add(def_path);
+                        list.add(0, new StorageInfo(def_path, def_path_internal, readonly, -1));
+                    } else if (line.contains("/dev/block/vold")) {
+                        if (!line.contains("/mnt/secure")
+                                && !line.contains("/mnt/asec")
+                                && !line.contains("/mnt/obb")
+                                && !line.contains("/dev/mapper")
+                                && !line.contains("tmpfs")) {
+                            paths.add(mount_point);
+                            list.add(new StorageInfo(mount_point, false, readonly, cur_display_number++));
+                        }
+                    }
+                }
+            }
+
+            if (!paths.contains(def_path) && def_path_available) {
+                list.add(0, new StorageInfo(def_path, def_path_internal, def_path_readonly, -1));
+            }
+
+        } catch (FileNotFoundException ex) {
+            ex.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (buf_reader != null) {
+                try {
+                    buf_reader.close();
+                } catch (IOException ex) {}
+            }
+        }
+        return list;
+    }
+
+
+
+
+    public static final String SD_CARD = "sdCard";
+    public static final String EXTERNAL_SD_CARD = "externalSdCard";
+    private static final String ENV_SECONDARY_STORAGE = "SECONDARY_STORAGE";
+
+    /*
+    public static Map<String, File> getAllStorageLocations() {
+        Map<String, File> storageLocations = new HashMap<>(10);
+        File sdCard = Environment.getExternalStorageDirectory();
+        storageLocations.put(SD_CARD, sdCard);
+        final String rawSecondaryStorage = System.getenv(ENV_SECONDARY_STORAGE);
+        if (!TextUtils.isEmpty(rawSecondaryStorage)) {
+            String[] externalCards = rawSecondaryStorage.split(":");
+            for (int i = 0; i < externalCards.length; i++) {
+                String path = externalCards[i];
+                storageLocations.put(EXTERNAL_SD_CARD + String.format(i == 0 ? "" : "_%d", i), new File(path));
+            }
+        }
+        return storageLocations;
+    }
+
+    public static List<StorageInfo> getStorageList() {
+        List<StorageInfo> list = new ArrayList<>();
+        List<File> typicallFolders = new ArrayList<>();
+        typicallFolders.add(new File("/storage"));
+        typicallFolders.add(new File("/mnt"));
+        int internalNumber = 1;
+        HashSet<String> knownPaths = new HashSet<>();
+        for(File fs:typicallFolders) {
+            try {
+                if(!fs.exists())
+                    continue;
+                for (File f : fs.listFiles()) {
+                    File finalPath = getexternalStorage(f, 1);
+                    if (finalPath != null && !knownPaths.contains(finalPath.toString()) && finalPath.canWrite()) {
+                        list.add(new StorageInfo(finalPath.toString(), true, true, internalNumber++));
+                        knownPaths.add(finalPath.toString());
+                    }
+                }
+
+            } catch (Exception e) {
+                //Catch exception if any
+                e.printStackTrace();
+            }
+        }
+        return list;
+    }
+    */
+
+    /*
+    private static File getexternalStorage(File path, int depth){
+        if (Environment.isExternalStorageRemovable(path))
+            return path;
+        File[] subFolders = path.listFiles();
+        if(depth == 3 || subFolders.length != 1){
+            return null;
+        }
+        return getexternalStorage(subFolders[0], depth++);
+    }
+    */
+
+
+
+
+    /**
+     * @return True if the external storage is available. False otherwise.
+     */
+    public static boolean isAvailable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
+            return true;
+        }
+        return false;
+    }
+
+    public static String getSdCardPath() {
+        return Environment.getExternalStorageDirectory().getPath() + "/";
+    }
+
+    /**
+     * @return True if the external storage is writable. False otherwise.
+     */
+    public static boolean isWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * @return A map of all storage locations available
+     */
+    public static Map<String, File> getAllStorageLocations() {
+        Map<String, File> map = new HashMap<String, File>(10);
+
+        List<String> mMounts = new ArrayList<String>(10);
+        List<String> mVold = new ArrayList<String>(10);
+        mMounts.add("/mnt/sdcard");
+        mVold.add("/mnt/sdcard");
+
+        try {
+            File mountFile = new File("/proc/mounts");
+            if(mountFile.exists()){
+                Scanner scanner = new Scanner(mountFile);
+                while (scanner.hasNext()) {
+                    String line = scanner.nextLine();
+                    if (line.startsWith("/dev/block/vold/")) {
+                        String[] lineElements = line.split(" ");
+                        String element = lineElements[1];
+
+                        // don't add the default mount path
+                        // it's already in the list.
+                        if (!element.equals("/mnt/sdcard"))
+                            mMounts.add(element);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            File voldFile = new File("/system/etc/vold.fstab");
+            if(voldFile.exists()){
+                Scanner scanner = new Scanner(voldFile);
+                while (scanner.hasNext()) {
+                    String line = scanner.nextLine();
+                    if (line.startsWith("dev_mount")) {
+                        String[] lineElements = line.split(" ");
+                        String element = lineElements[2];
+
+                        if (element.contains(":"))
+                            element = element.substring(0, element.indexOf(":"));
+                        if (!element.equals("/mnt/sdcard"))
+                            mVold.add(element);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        for (int i = 0; i < mMounts.size(); i++) {
+            String mount = mMounts.get(i);
+            if (!mVold.contains(mount))
+                mMounts.remove(i--);
+        }
+        mVold.clear();
+
+        List<String> mountHash = new ArrayList<String>(10);
+
+        for(String mount : mMounts){
+            File root = new File(mount);
+            if (root.exists() && root.isDirectory() && root.canWrite()) {
+                File[] list = root.listFiles();
+                String hash = "[";
+                if(list!=null){
+                    for(File f : list){
+                        hash += f.getName().hashCode()+":"+f.length()+", ";
+                    }
+                }
+                hash += "]";
+                if(!mountHash.contains(hash)){
+                    String key = SD_CARD + "_" + map.size();
+                    if (map.size() == 0) {
+                        key = SD_CARD;
+                    } else if (map.size() == 1) {
+                        key = EXTERNAL_SD_CARD;
+                    }
+                    mountHash.add(hash);
+                    map.put(key, root);
+                }
+            }
+        }
+
+        mMounts.clear();
+
+        if(map.isEmpty()){
+            map.put(SD_CARD, Environment.getExternalStorageDirectory());
+        }
+        return map;
+    }
+
+
+
+
+    /**
+     * returns a list of all available sd cards paths, or null if not found.
+     *
+     * @param includePrimaryExternalStorage set to true if you wish to also include the path of the primary external storage
+     */
+    /*
+    public static List<String> getSdCardPaths(final Context context, final boolean includePrimaryExternalStorage)
+    {
+        final File[] externalCacheDirs=ContextCompat.getExternalCacheDirs(context);
+        if(externalCacheDirs==null||externalCacheDirs.length==0)
+            return null;
+        if(externalCacheDirs.length==1)
+        {
+            if(externalCacheDirs[0]==null)
+                return null;
+            final String storageState=EnvironmentCompat.getStorageState(externalCacheDirs[0]);
+            if(!Environment.MEDIA_MOUNTED.equals(storageState))
+                return null;
+            if(!includePrimaryExternalStorage&&Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB&&Environment.isExternalStorageEmulated())
+                return null;
+        }
+        final List<String> result=new ArrayList<>();
+        if(includePrimaryExternalStorage||externalCacheDirs.length==1)
+            result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
+        for(int i=1;i<externalCacheDirs.length;++i)
+        {
+            final File file=externalCacheDirs[i];
+            if(file==null)
+                continue;
+            final String storageState=EnvironmentCompat.getStorageState(file);
+            if(Environment.MEDIA_MOUNTED.equals(storageState))
+                result.add(getRootOfInnerSdCardFolder(externalCacheDirs[i]));
+        }
+        if(result.isEmpty())
+            return null;
+        return result;
+    }
+    */
+
+
+    /** Given any file/folder inside an sd card, this will return the path of the sd card */
+    /*
+    private static String getRootOfInnerSdCardFolder(File file)
+    {
+        if(file==null)
+            return null;
+        final long totalSpace=file.getTotalSpace();
+        while(true)
+        {
+            final File parentFile=file.getParentFile();
+            if(parentFile==null||parentFile.getTotalSpace()!=totalSpace)
+                return file.getAbsolutePath();
+            file=parentFile;
+        }
+    }
+    */
+
+
+
+    /*
+    final String state = Environment.getExternalStorageState();
+
+    if ( Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state) ) {  // we can read the External Storage...
+        //Retrieve the primary External Storage:
+        final File primaryExternalStorage = Environment.getExternalStorageDirectory();
+
+        //Retrieve the External Storages root directory:
+        final String externalStorageRootDir;
+        if ( (externalStorageRootDir = primaryExternalStorage.getParent()) == null ) {  // no parent...
+            Log.d(TAG, "External Storage: " + primaryExternalStorage + "\n");
+        }
+        else {
+            final File externalStorageRoot = new File( externalStorageRootDir );
+            final File[] files = externalStorageRoot.listFiles();
+
+            for ( final File file : files ) {
+                if ( file.isDirectory() && file.canRead() && (file.listFiles().length > 0) ) {  // it is a real directory (not a USB drive)...
+                    Log.d(TAG, "External Storage: " + file.getAbsolutePath() + "\n");
+                }
+            }
+        }
+    }
+    */
+
+    /*
+    public static String getExternalSdCardPath() {
+        String path = null;
+
+        File sdCardFile = null;
+        List<String> sdCardPossiblePath = Arrays.asList("external_sd", "ext_sd", "external", "extSdCard");
+
+        for (String sdPath : sdCardPossiblePath) {
+            File file = new File("/mnt/", sdPath);
+
+            if (file.isDirectory() && file.canWrite()) {
+                path = file.getAbsolutePath();
+
+                String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+                File testWritable = new File(path, "test_" + timeStamp);
+
+                if (testWritable.mkdirs()) {
+                    testWritable.delete();
+                }
+                else {
+                    path = null;
+                }
+            }
+        }
+
+        if (path != null) {
+            sdCardFile = new File(path);
+        }
+        else {
+            sdCardFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath());
+        }
+
+        return sdCardFile.getAbsolutePath();
+    }
+    */
+
+    // ---------------------------------
+
+
+
+
+
+    // ---------------------------------
+
+    private static List<File> mRemovableStorages;
+
+    private static List<File> populateRemovabeStorages(Object[] storageVolumes) throws Exception {
+        List<File> storages = new ArrayList<>();
+
+        for (Object storageVolume : storageVolumes) {
+            Class<?> cls = storageVolume.getClass();
+            Method isRemovable = cls.getDeclaredMethod("isRemovable");
+            if (!isRemovable.isAccessible()) isRemovable.setAccessible(true);
+            if ((boolean) isRemovable.invoke(storageVolume, (Object[]) null)) {
+                Method getState = cls.getDeclaredMethod("getState");
+                if (!getState.isAccessible()) getState.setAccessible(true);
+                String state = (String) getState.invoke(storageVolume, (Object[]) null);
+                if (state.equals(Environment.MEDIA_MOUNTED)) { // "mounted"
+                    Method getPath = cls.getDeclaredMethod("getPath");
+                    if (!getPath.isAccessible()) getPath.setAccessible(true);
+                    String path = (String) getPath.invoke(storageVolume, (Object[]) null);
+                    storages.add(new File(path));
+                }
+            }
+        }
+
+        return storages;
+    }
+
+    public static List<File> getRemovabeStorages() {
+        return mRemovableStorages;
+    }
+
+    // ---------------------------------
+
+    public final static String TYPE_PRIMARY = "primary";
+    public final static String TYPE_INTERNAL = "internal";
+    public final static String TYPE_SD = "MicroSD";
+    public final static String TYPE_USB = "USB";
+    public final static String TYPE_UNKNOWN = "unknown";
+
+    public final static String WRITE_NONE = "none";
+    public final static String WRITE_READONLY = "readonly";
+    public final static String WRITE_APPONLY = "apponly";
+    public final static String WRITE_FULL = "readwrite";
+
+    private static Device[] devices, externalstorage, storage;
+    private static BroadcastReceiver receiver;
+    private static boolean useReceiver = true;
+    private static String userDir;
+
+    public static Device[] getDevices(Context context) {
+        if (devices == null) initDevices(context);
+        return devices;
+    }
+
+    public static Device[] getExternalStorage(Context context) {
+        if (devices == null) initDevices(context);
+        return externalstorage;
+    }
+
+    public static Device[] getStorage(Context context) {
+        if (devices == null) initDevices(context);
+        return storage;
+    }
+
+    public static IntentFilter getRescanIntentFilter() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_MEDIA_BAD_REMOVAL);
+        filter.addAction(Intent.ACTION_MEDIA_MOUNTED);
+        filter.addAction(Intent.ACTION_MEDIA_REMOVED);
+        filter.addAction(Intent.ACTION_MEDIA_SHARED);
+        filter.addDataScheme("file");
+        return filter;
+    }
+
+    public static void setUseReceiver(Context context, boolean use) {
+        if (use && receiver == null) {
+            receiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    // android.intent.action.MEDIA_BAD_REMOVAL-file:///storage/F754-3738
+                    // android.intent.action.MEDIA_MOUNTED-file:///storage/F754-3738
+                    Log.i(TAG, "Storage " + intent.getAction() + "-" + intent.getData());
+                    initDevices(context);
+                }
+            };
+            context.registerReceiver(receiver, getRescanIntentFilter());
+        } else if (!use && receiver != null) {
+            context.unregisterReceiver(receiver);
+            receiver = null;
+        }
+        useReceiver = use;
+    }
+
+    public static void initDevices(Context context) {
+
+        if (userDir == null) userDir = "/Android/data/" + context.getPackageName();
+
+        setUseReceiver(context, useReceiver);
+
+
+        Object[] storageVolumes;
+
+        storageVolumes = new Object[]{};
+
+        int len = 0;
+
+        // ==========
+
+        /*
+        if (len == 0) try {
+            Method getService = Class.forName("android.os.ServiceManager")
+                    .getDeclaredMethod("getService", String.class);
+
+            if (!getService.isAccessible()) getService.setAccessible(true);
+            IBinder service = (IBinder) getService.invoke(null, "mount");
+
+            Method asInterface = Class.forName("android.os.storage.IMountService$Stub")
+                    .getDeclaredMethod("asInterface", IBinder.class);
+
+            if (!asInterface.isAccessible()) asInterface.setAccessible(true);
+            Object mountService = asInterface.invoke(null, service);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                String packageName = context.getPackageName();
+                int uid = context.getPackageManager().getPackageInfo(packageName, 0).applicationInfo.uid;
+                Method getVolumeList = mountService.getClass().getDeclaredMethod(
+                        "getVolumeList", int.class, String.class, int.class);
+                if (!getVolumeList.isAccessible()) getVolumeList.setAccessible(true);
+                storageVolumes = (Object[]) getVolumeList.invoke(mountService, uid, packageName, 0);
+            } else {
+                Method getVolumeList = mountService.getClass().getDeclaredMethod("getVolumeList");
+                if (!getVolumeList.isAccessible()) getVolumeList.setAccessible(true);
+                storageVolumes = (Object[]) getVolumeList.invoke(mountService, (Object[]) null);
+            }
+
+            len = storageVolumes.length;
+        }
+
+        catch (Exception e) {
+
+        }
+        */
+
+        if (len == 0) try {
+            StorageManager storageManager = (StorageManager) context.getSystemService(Context.STORAGE_SERVICE);
+
+            Method getVolumeList = storageManager.getClass().getMethod("getVolumeList", null);
+            if (!getVolumeList.isAccessible()) getVolumeList.setAccessible(true);
+
+            storageVolumes = (Object[]) getVolumeList.invoke(storageManager, (Object[]) null); // android.os.Storage.StorageVolume
+
+            len = storageVolumes.length;
+        }
+
+        catch (Exception e) {
+
+        }
+
+        // ==========
+
+        try {
+
+            // ----------
+            mRemovableStorages = populateRemovabeStorages(storageVolumes);
+            // ----------
+
+            Device[] temp = new Device[storageVolumes.length];
+            for (int i = 0; i < storageVolumes.length; i++) temp[i] = new Device(storageVolumes[i]);
+
+            Device primary = null;
+            for (Device d : temp) if (d.mPrimary) primary = d;
+
+            if (primary == null) for (Device d : temp)
+                if (!d.mRemovable) {
+                    d.mPrimary = true;
+                    primary = d;
+                    break;
+                }
+
+            if (primary == null) {
+                primary = temp[0];
+                primary.mPrimary = true;
+            }
+
+
+//            File[] files = ContextCompat.getExternalFilesDirs(context, null);
+//            File[] caches = ContextCompat.getExternalCacheDirs(context);
+//
+//            for (Device d : temp) {
+//                if (files != null) for (File f : files)
+//                    if (f != null && f.getAbsolutePath().startsWith(d.getAbsolutePath()))
+//                        d.mFiles = f;
+//                if (caches != null) for (File f : caches)
+//                    if (f != null && f.getAbsolutePath().startsWith(d.getAbsolutePath()))
+//                        d.mCache = f;
+//            }
+
+
+            ArrayList<Device> tempDev = new ArrayList<Device>(10);
+            ArrayList<Device> tempStor = new ArrayList<Device>(10);
+            ArrayList<Device> tempExt = new ArrayList<Device>(10);
+            for (Device d : temp) {
+                tempDev.add(d);
+                if (d.isAvailable()) {
+                    tempExt.add(d);
+                    tempStor.add(d);
+                }
+            }
+
+            Device internal = new Device(context);
+            tempStor.add(0, internal); // bei Storage-Alternativen immer
+            if (!primary.mEmulated) tempDev.add(0, internal); // bei Devices nur wenn zusätzlich
+
+            devices = tempDev.toArray(new Device[tempDev.size()]);
+            storage = tempStor.toArray(new Device[tempStor.size()]);
+            externalstorage = tempExt.toArray(new Device[tempExt.size()]);
+
+        } catch (Exception e) {
+            // Fallback auf normale Android-Funktionen
+        }
+
+    }
+
+    public static class Device extends File {
+        String mUserLabel, mUuid, mState, mWriteState, mType;
+        boolean mPrimary, mRemovable, mEmulated, mAllowMassStorage;
+        long mMaxFileSize;
+        File mFiles, mCache;
+
+        Device(Context context) {
+            super(Environment.getDataDirectory().getAbsolutePath());
+            mState = Environment.MEDIA_MOUNTED; // "mounted"
+            //// mFiles = context.getFilesDir();
+            //// mCache = context.getCacheDir();
+            mType = TYPE_INTERNAL;
+            mWriteState = WRITE_APPONLY;
+        }
+
+        @SuppressWarnings("NullArgumentToVariableArgMethod")
+        Device(Object storageVolume) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+            super((String) storageVolume.getClass().getMethod("getPath", null).invoke(storageVolume, null));
+            Class<?> cls = storageVolume.getClass();
+
+            for (Method m : cls.getMethods()) {
+                if (!m.isAccessible()) m.setAccessible(true);
+                if (m.getName().equals("getUserLabel") && m.getParameterTypes().length == 0 && m.getReturnType() == String.class)
+                    mUserLabel = (String) m.invoke(storageVolume, (Object[]) null); // from Android 4.4
+                if (m.getName().equals("getUuid") && m.getParameterTypes().length == 0 && m.getReturnType() == String.class)
+                    mUuid = (String) m.invoke(storageVolume, (Object[]) null); // from Android 4.4
+                if (m.getName().equals("getState") && m.getParameterTypes().length == 0 && m.getReturnType() == String.class)
+                    mState = (String) m.invoke(storageVolume, (Object[]) null); // from Android 4.4
+                if (m.getName().equals("isRemovable") && m.getParameterTypes().length == 0 && m.getReturnType() == boolean.class)
+                    mRemovable = (Boolean) m.invoke(storageVolume, (Object[]) null); // from Android 4.0
+                if (m.getName().equals("isPrimary") && m.getParameterTypes().length == 0 && m.getReturnType() == boolean.class)
+                    mPrimary = (Boolean) m.invoke(storageVolume, (Object[]) null); // from Android 4.2
+                if (m.getName().equals("isEmulated") && m.getParameterTypes().length == 0 && m.getReturnType() == boolean.class)
+                    mEmulated = (Boolean) m.invoke(storageVolume, (Object[]) null); // from Android 4.0
+                if (m.getName().equals("allowMassStorage") && m.getParameterTypes().length == 0 && m.getReturnType() == boolean.class)
+                    mAllowMassStorage = (Boolean) m.invoke(storageVolume, (Object[]) null); // from Android 4.0
+                if (m.getName().equals("getMaxFileSize") && m.getParameterTypes().length == 0 && m.getReturnType() == long.class)
+                    mMaxFileSize = (Long) m.invoke(storageVolume, (Object[]) null); // from Android 4.0
+                // getDescription (ab 4.1 mit context) liefert keine sinnvollen Werte
+                // getPathFile (ab 4.2) liefert keine sinnvollen Werte
+                // getMtpReserveSpace (ab 4.0) für diese Zwecke unwichtig
+                // getStorageId (ab 4.0) für diese Zwecke unwichtig
+            }
+
+            if (mState == null) mState = getState();
+
+            if (mPrimary)
+                mType = TYPE_PRIMARY;
+
+            else {
+                String n = getAbsolutePath().toLowerCase();
+                if (n.indexOf("sd") > 0)
+                    mType = TYPE_SD;
+                else if (n.indexOf("usb") > 0)
+                    mType = TYPE_USB;
+                else
+                    mType = TYPE_UNKNOWN + " " + getAbsolutePath();
+            }
+
+        }
+
+        public String getType() {
+            return mType;
+        }
+
+        /*
+        public String getAccess() {
+            if (mWriteState == null) {
+                try {
+                    mWriteState = WRITE_NONE;
+                    File[] root = listFiles();
+                    if (root == null || root.length == 0)
+                        throw new IOException("root empty/unreadable");
+                    mWriteState = WRITE_READONLY;
+                    File tempFile = File.createTempFile("jow", null, getFilesDir());
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                    mWriteState = WRITE_APPONLY;
+                    tempFile = File.createTempFile("jow", null, this);
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                    mWriteState = WRITE_FULL;
+                } catch (IOException ignore) {
+                    Log.v(TAG, "writeTest " + getAbsolutePath() + " ->" + mWriteState + "<- " + ignore.getMessage());
+                }
+            }
+            return mWriteState;
+        }
+        */
+
+        public boolean isAvailable() {
+            String s = getState();
+            return (
+                    Environment.MEDIA_MOUNTED.equals(s) ||
+                    Environment.MEDIA_MOUNTED_READ_ONLY.equals(s)
+            );
+            // MEDIA_SHARED: als USB freigegeben; bitte Handy auf MTP umstellen
+        }
+
+        public String getState() {
+            if (mRemovable || mState == null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                    // Android 5.0? Da gibts was neues
+                    mState = Environment.getExternalStorageState(this);
+                else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+                    // Android 4.4? Dann dort nachfragen
+                    mState = Environment.getStorageState(this);
+                else if (canRead() && getTotalSpace() > 0)
+                    // lesbar und Größe vorhanden => gibt es
+                    mState = Environment.MEDIA_MOUNTED;
+                else if (mState == null || Environment.MEDIA_MOUNTED.equals(mState))
+                    // nicht lesbar, keine Größe aber noch MOUNTED || oder ungesetzt => UNKNOWN
+                    mState = EnvironmentCompat.MEDIA_UNKNOWN;
+            }
+            return mState;
+        }
+
+        /*
+        public File getFilesDir() {
+            if (mFiles == null) {
+                mFiles = new File(this, userDir + "/files");
+                if (!mFiles.isDirectory())
+                    //noinspection ResultOfMethodCallIgnored
+                    mFiles.mkdirs();
+            }
+            return mFiles;
+        }
+
+        public File getCacheDir() {
+            if (mCache == null) {
+                mCache = new File(this, userDir + "/cache");
+                if (!mCache.isDirectory())
+                    //noinspection ResultOfMethodCallIgnored
+                    mCache.mkdirs();
+            }
+            return mCache;
+        }
+        */
+
+        public boolean isPrimary() {
+            return mPrimary;
+        }
+
+        public boolean isRemovable() {
+            return mRemovable;
+        }
+        public boolean isEmulated() {
+            return mEmulated;
+        }
+
+        public boolean isAllowMassStorage() {
+            return mAllowMassStorage;
+        }
+
+        public long getMaxFileSize() {
+            return mMaxFileSize;
+        }
+
+        public String getUserLabel() {
+            return mUserLabel;
+        }
+
+        public String getUuid() {
+            return mUuid;
+        }
+    }
+
+}

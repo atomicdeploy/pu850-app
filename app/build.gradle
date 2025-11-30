@@ -1,0 +1,81 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 34
+    defaultConfig {
+        applicationId "com.pandcaspian.indicator"
+        minSdkVersion 24
+        targetSdkVersion 33
+        versionCode 2
+        versionName "2.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+            signingConfig signingConfigs.debug
+        }
+    }
+    namespace 'com.pandcaspian.indicator'
+    buildFeatures {
+        buildConfig true
+    }
+    /*
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    */
+}
+
+project.afterEvaluate {
+    android.applicationVariants.configureEach { variant ->
+        tasks.register("installRun${variant.name.capitalize()}", Exec) {
+            dependsOn "install${variant.name.capitalize()}"
+            dependsOn "turnOnScreen"
+            tasks.findByName('turnOnScreen').mustRunAfter "install${variant.name.capitalize()}"
+            group = "run"
+            description "Installs and runs ${variant.applicationId} using Monkey"
+            commandLine = ["adb", "shell", "monkey", "-p", variant.applicationId + " 1"]
+            doLast {
+                println "Launching ${variant.applicationId}"
+            }
+        }
+    }
+}
+
+tasks.register('turnOnScreen') {
+    description = "Turns on the device screen using ADB."
+    doLast {
+        println("Turning the device screen on")
+        exec {
+            // This will turn the screen on, if it's off
+            commandLine "adb", "shell", "input", "keyevent", "KEYCODE_WAKEUP"
+        }
+        exec {
+            // This will unlock the phone if it's on the lock screen (swipe only)
+            commandLine "adb", "shell", "input", "keyevent", "KEYCODE_MENU"
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    annotationProcessor 'org.jetbrains:annotations-java5:15.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+    implementation 'com.github.aliab:Persian-Date-Picker-Dialog:1.8.0'
+}

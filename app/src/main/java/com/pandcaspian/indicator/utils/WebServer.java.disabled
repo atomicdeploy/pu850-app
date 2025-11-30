@@ -1,0 +1,475 @@
+package com.pandcaspian.indicator.utils;
+
+import android.content.Context;
+import android.os.Environment;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.widget.Switch;
+import android.widget.Toast;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import org.nanohttpd.NanoHTTPD
+
+public class WebServer extends NanoHTTPD {
+
+    private static final int PORT = 8765;
+
+    /**
+     * logger to log to.
+     */
+    private static final Logger LOG = Logger.getLogger(WebServer.class.getName());
+
+    /**
+     * Constructs an HTTP server on given port.
+     * @param playerActivity
+     */
+    public WebServer(Context myContext, PlayerActivity playerActivity) throws IOException {
+        super("0.0.0.0", PORT);
+        // start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+
+        this.mContext = myContext;
+        this.mParent = playerActivity;
+    }
+
+    private Context mContext;
+    private PlayerActivity mParent;
+
+    @Override
+    public void start(final int timeout, boolean daemon) throws IOException {
+        super.start(timeout, daemon);
+
+        // Server is ready here: call your callback method, listener, etc.
+        if ( mOnServerStarted != null )
+            mOnServerStarted.onStarted(this);
+    }
+
+    public void setOnServerStarted(OnServerStarted listener)
+    {
+        mOnServerStarted = listener;
+    }
+
+    private OnServerStarted mOnServerStarted = null;
+
+    public interface OnServerStarted {
+        void onStarted(WebServer mHandle);
+    }
+
+    private static final String MIME_JSON = "application/json";
+
+    @Override
+    public Response serve(IHTTPSession session) {
+
+        Method method = session.getMethod();
+        String uri = session.getUri();
+
+        String remoteIp = session.getRemoteIpAddress();
+
+        String requestBody = session.getQueryParameterString();
+        Map<String, List<String>> queryParameters = decodeParameters(requestBody);
+        Map<String, List<String>> params = session.getParameters();
+
+        // WebServer.LOG.info(method + " '" + uri + "' ");
+
+        String response = "";
+
+
+        if ( method == Method.GET ) {
+
+            String virtualRoot = "/media";
+
+            if ( uri.toLowerCase().startsWith(virtualRoot + "/") || uri.toLowerCase().equals(virtualRoot) ) {
+
+                String filePath = uri.substring( virtualRoot.length() );
+
+                if ( mParent.isUsbConnected ) {
+
+                    File realDir = new File(mParent.media_directory);
+
+                    if ( !realDir.exists() ) {
+                        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Host directory doesn't exist: " + realDir);
+                    }
+
+                    if ( !realDir.isDirectory() ) {
+                        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Host directory path is not a directory: " + realDir);
+                    }
+
+                    if ( !realDir.canRead() ) {
+                        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Host directory not readable: " + realDir);
+                    }
+
+                    if ( filePath.matches("^[/\\\\]*$") ) {
+
+                        if ( uri.equals(virtualRoot + "/") ) {
+
+                            StringBuilder line = new StringBuilder();
+
+                            for ( File o : realDir.listFiles() ) {
+                                line.append( o.toString().replace(realDir.toString(), virtualRoot) ).append("\n");
+                            }
+
+                            return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, line.toString() );
+
+                        }
+
+                        else {
+
+                            Response res;
+
+                            res = newFixedLengthResponse(Response.Status.REDIRECT,
+                                    NanoHTTPD.MIME_PLAINTEXT, "");
+                            res.addHeader("Location", virtualRoot + "/" );
+
+                            return res;
+
+                        }
+
+                    }
+
+                    else {
+
+
+                        File file = new File( realDir + "/" + filePath );
+
+                        if ( !file.toString().startsWith(realDir.toString()) ) {
+                            return newFixedLengthResponse(Response.Status.FORBIDDEN, MIME_PLAINTEXT, "Bad request path: " + file.toString());
+                        }
+
+                        if ( !file.exists() ) {
+                            return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "File does not exist: " + file.toString());
+                        }
+
+                        if ( !file.isFile() ) {
+                            return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "File path is not a file: " + file.toString());
+                        }
+
+                        String extension = FilenameUtils.getExtension(file.toString()).toLowerCase();
+
+                        String mime;
+
+                        switch( extension ) {
+
+                            case "mp4":
+                                mime = "video/mp4";
+                                break;
+
+                            default:
+                                mime = "application/octet-stream";
+                                break;
+
+                        }
+
+                        return serveFile(file, session.getHeaders(), mime);
+
+                    }
+
+
+                }
+
+                else {
+                    return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Usb device is disconnected");
+                }
+
+            }
+
+        }
+
+
+        if ( method == Method.GET ) {
+
+            try {
+
+                JSONObject result;
+
+                switch (uri.toLowerCase()) {
+
+                    case "/test":
+                        response = String.format("queryParams: %s\nparams: %s", queryParameters.toString(), params.toString());
+                        return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, response);
+
+                    case "/info":
+                        result = new JSONObject();
+                        result.put("result", mParent.readInfo());
+                        return newFixedLengthResponse(Response.Status.OK, MIME_JSON, result.toString(4));
+
+                    default:
+                        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT,
+                                "The requested resource does not exist");
+
+                }
+
+            } catch (JSONException je) {
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "JSONException: " + je.getMessage());
+            }
+
+        } else
+
+        if ( method == Method.POST ) {
+
+            Map<String, String> files = new HashMap<String, String>();
+
+            try {
+                session.parseBody(files);
+
+                String requestContentType = session.getHeaders().get("content-type");
+                Boolean isJsonRequest = requestContentType != null && requestContentType.toLowerCase().equals("application/json");
+                JSONObject requestAsJson = new JSONObject( isJsonRequest ? files.get("postData") : "{}" );
+
+                JSONObject result;
+
+                switch ( uri.toLowerCase() ) {
+
+                    case "/test":
+                        response = String.format("Post data: %s\nRequest query (raw): %s\nparams: %s", files.get("postData"), requestBody, params.toString());
+                        Log.d("WebServer", response);
+                        return newFixedLengthResponse( Response.Status.OK, MIME_PLAINTEXT, response);
+
+                    case "/display":  // ----> Display a toast, e.g.: /display?length=short, body: { "text": "Hello world" }
+                        if ( !isJsonRequest ) throw new IOException("This application requires request Content-Type to be set as `application/json`.");
+                        final String msg = requestAsJson.getString("text"),
+                                length = getParameter("length", "short", queryParameters);
+                        mParent.runOnUiThread(new Runnable(){
+                            public void run()
+                            {
+                                Toast.makeText(mContext, msg, "long".equalsIgnoreCase(length) ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                        result = new JSONObject(); result.put("result", "done");
+                        return newFixedLengthResponse( Response.Status.OK, MIME_JSON, result.toString());
+
+                    case "/command":
+                        if ( !isJsonRequest ) throw new IOException("This application requires request Content-Type to be set as `application/json`.");
+                        final String command = requestAsJson.getString("command"),
+                            args = requestAsJson.has("args") ? requestAsJson.getString("args") : "{}";
+                        mParent.runOnUiThread(new Runnable(){
+                            public void run()
+                            {
+                                mParent.procCmd(command, args);
+                            }
+                        });
+                        result = new JSONObject(); result.put("result", "done");
+                        return newFixedLengthResponse( Response.Status.OK, MIME_JSON, result.toString());
+
+                    case "/callback":
+                        if ( !isJsonRequest ) throw new IOException("This application requires request Content-Type to be set as `application/json`.");
+                        final String event_data = requestAsJson.has("data") ? requestAsJson.getString("data") : "",
+                                event_name = getParameter("event", "", queryParameters);
+                        mParent.runOnUiThread(new Runnable(){
+                            public void run()
+                            {
+                                mParent.recvEvent(event_name, event_data);
+                            }
+                        });
+                        result = new JSONObject(); result.put("result", "done");
+                        return newFixedLengthResponse( Response.Status.OK, MIME_JSON, result.toString());
+
+                    case "/key":
+                        if ( !isJsonRequest ) throw new IOException("This application requires request Content-Type to be set as `application/json`.");
+                        final int code = requestAsJson.getInt("code");
+                        final int action;
+
+                        if (requestAsJson.has("action")) {
+                            switch ( requestAsJson.getString("action").toUpperCase() ) {
+                                case "0":
+                                case "ACTION_DOWN":
+                                    action = KeyEvent.ACTION_DOWN;
+                                    break;
+                                case "1":
+                                case "ACTION_UP":
+                                    action = KeyEvent.ACTION_UP;
+                                    break;
+                                case "":
+                                case "BOTH":
+                                    action = KeyEvent.ACTION_MULTIPLE;
+                                    break;
+                                default:
+                                    throw new IOException("Action should be either `ACTION_DOWN`, `ACTION_UP`, or `ACTION_DOWN`.");
+                            }
+                        }
+                        else action = KeyEvent.ACTION_MULTIPLE;
+
+                        mParent.runOnUiThread(new Runnable(){
+                            public void run()
+                            {
+                                if ( action == KeyEvent.ACTION_DOWN || action == KeyEvent.ACTION_UP ) {
+                                    mParent.dispatchKeyEvent(new KeyEvent(action, code));
+                                }
+                                else { // if (action == KeyEvent.ACTION_MULTIPLE) {
+                                    mParent.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, code));
+                                    mParent.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, code));
+                                }
+
+                            }
+                        });
+                        result = new JSONObject(); result.put("result", "done");
+                        return newFixedLengthResponse( Response.Status.OK, MIME_JSON, result.toString());
+
+                    default:
+                        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT,
+                                "The requested resource does not exist");
+                }
+
+            } catch (IOException ioe) {
+                Log.d("WebServer", "IOException", ioe);
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "IOException: " + ioe.getMessage());
+            } catch (JSONException je) {
+                Log.d("WebServer", "JSONException", je);
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "JSONException: " + je.getMessage());
+            } catch (ResponseException re) {
+                Log.d("WebServer", "ResponseException", re);
+                return newFixedLengthResponse(re.getStatus(), MIME_PLAINTEXT, re.getMessage());
+            }
+
+        }
+
+        /*
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT,
+                "The requested resource does not exist");
+        */
+
+//        Response response = newFixedLengthResponse("Hello world");
+//        response.addHeader("Access-Control-Allow-Origin", "*");
+//        return response;
+
+
+
+
+        // return newFixedLengthResponse(Response.Status.OK, "text/plain", response);
+        // return newFixedLengthResponse(response);
+
+        // return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT,
+        //        "The requested resource does not exist")
+
+        return super.serve(session);
+
+    }
+
+    private String getParameter(String key, String defaultValue, Map<String, List<String>> queryParameters) {
+
+        try {
+            List<String> valueList = queryParameters.get(key);
+            return valueList.get(0);
+        } catch (Exception e) {
+            // e.printStackTrace();
+        }
+
+        return defaultValue;
+
+    }
+
+    // source: https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/org/nanohttpd/webserver/SimpleWebServer.java
+    private Response serveFile( /*String uri*/ File file, Map<String, String> header, String mime) {
+
+        Response res;
+
+        try {
+
+            // Open file from SD Card
+            // File root = Environment.getExternalStorageDirectory();
+            // String filePath = root.getAbsolutePath() + uri; // "/www/index.html";
+
+            // File file = new File(uri);
+
+            // Calculate ETag
+            String etag = Integer.toHexString((String.format("%s%d%d", file.getAbsolutePath(), file.lastModified(), file.length())).hashCode());
+
+            // Support (simple) skipping:
+            long startFrom = 0;
+            long endAt = -1;
+            String range = header.get("range");
+            if (range != null) {
+                if (range.startsWith("bytes=")) {
+                    range = range.substring("bytes=".length());
+                    int minus = range.indexOf('-');
+                    try {
+                        if (minus > 0) {
+                            startFrom = Long.parseLong(range
+                                    .substring(0, minus));
+                            endAt = Long.parseLong(range.substring(minus + 1));
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+
+            // Change return code and add Content-Range header when skipping is requested
+            long fileLen = file.length();
+            if (range != null && startFrom >= 0) {
+                if (startFrom >= fileLen) {
+                    res = newFixedLengthResponse(Response.Status.RANGE_NOT_SATISFIABLE,
+                            NanoHTTPD.MIME_PLAINTEXT, "");
+                    res.addHeader("Content-Range", "bytes 0-0/" + fileLen);
+                    res.addHeader("ETag", etag);
+                } else {
+                    if (endAt < 0) {
+                        endAt = fileLen - 1;
+                    }
+                    long newLen = endAt - startFrom + 1;
+                    if (newLen < 0) {
+                        newLen = 0;
+                    }
+
+                    final long dataLen = newLen;
+                    FileInputStream fis = new FileInputStream(file) {
+                        @Override
+                        public int available() throws IOException {
+                            return (int) dataLen;
+                        }
+                    };
+                    fis.skip(startFrom);
+
+                    res = newChunkedResponse(Response.Status.PARTIAL_CONTENT, mime,
+                            fis);
+                    res.addHeader("Content-Length", "" + dataLen);
+                    res.addHeader("Content-Range", "bytes " + startFrom + "-"
+                            + endAt + "/" + fileLen);
+                    res.addHeader("ETag", etag);
+                }
+            } else {
+                if (etag.equals(header.get("if-none-match")))
+                    res = newFixedLengthResponse(Response.Status.NOT_MODIFIED, mime, "");
+                else {
+                    res = newChunkedResponse(Response.Status.OK, mime,
+                            new FileInputStream(file));
+                    res.addHeader("Content-Length", "" + fileLen);
+                    res.addHeader("ETag", etag);
+                }
+            }
+
+            // Return fixed length response
+//            String line = "";
+//            FileReader index = new FileReader(filePath);
+//            BufferedReader reader = new BufferedReader(index);
+//            while ((line = reader.readLine()) != null) response += line;
+//            reader.close();
+
+            // Return chunked response
+//            FileInputStream fis = new FileInputStream(filePath);
+//            return newChunkedResponse(Response.Status.OK, "text/plain", fis);
+
+        } catch(IOException ioe) {
+
+            Log.w("Httpd", ioe.toString());
+
+            res = newFixedLengthResponse(Response.Status.FORBIDDEN,
+                    NanoHTTPD.MIME_PLAINTEXT, "Reading file failed.");
+
+        }
+
+        return res;
+
+    }
+
+}

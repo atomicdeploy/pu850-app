@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="10dip"
+    android:width="360dip"
+    android:viewportHeight="10"
+    android:viewportWidth="360" >
+    <group
+        android:name="progress_group"
+        android:translateX="180"
+        android:translateY="5" >
+        <clip-path
+            android:name="mask"
+            android:pathData="M175,5h-350c-2.761,0-5-2.239-5-5v0c0-2.761,2.239-5,5-5h350c2.761,0,5,2.239,5,5v0C180,2.761,177.761,5,175,5z" />
+        <path
+            android:name="background_track"
+            android:pathData="M -180.0,-5.0 l 360.0,0 l 0,10.0 l -360.0,0 Z"
+            android:fillColor="@color/colorProgressBarBackground" />
+        <group
+            android:name="rect2_grp"
+            android:translateX="-197.60001"
+            android:scaleX="0.1" >
+            <path
+                android:name="rect2"
+                android:pathData="M-139-5h278c2.761,0,5,2.239,5,5v0c0,2.761-2.239,5-5,5h-278c-2.761,0-5-2.239-5-5v0C-144-2.761-141.761-5-139-5z"
+                android:fillColor="?attr/colorControlActivated" />
+        </group>
+        <group
+            android:name="rect1_grp"
+            android:translateX="-522.59998"
+            android:scaleX="0.1" >
+            <path
+                android:name="rect1"
+                android:pathData="M-139-5h278c2.761,0,5,2.239,5,5v0c0,2.761-2.239,5-5,5h-278c-2.761,0-5-2.239-5-5v0C-144-2.761-141.761-5-139-5z"
+                android:fillColor="?attr/colorControlActivated" />
+        </group>
+    </group>
+</vector>

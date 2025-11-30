@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="colorBackground">#F6F6F1</color>
+    <color name="colorForeground">#232424</color>
+    <color name="colorSecondary">#dcdde1</color>
+    <color name="colorGrayText">#525960</color>
+
+    <color name="colorAccent">#8B98CE</color>
+    <color name="shadowColor">#27272727</color>
+
+    <!-- Button colors -->
+    <color name="colorButtonBackground">#8B98CE</color>
+    <color name="colorButtonForeground">#f6e58d</color>
+
+    <!-- Progress Bar Background -->
+    <color name="colorProgressBarBackground">#25232424</color>
+
+    <!-- Panel colors -->
+    <color name="colorPanelBackground">#aab5df</color>
+    <color name="colorPanelText">#383c4f</color>
+
+    <color name="colorDarkPaper">#F2F2E9</color>
+
+    <!-- State colors -->
+    <color name="colorError">#c0392b</color>
+
+</resources>

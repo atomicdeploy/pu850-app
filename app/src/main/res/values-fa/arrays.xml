@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="byte_units">
+        <item>بایت</item>
+        <item>کیلوبایت</item>
+        <item>مگابایت</item>
+        <item>گیگابایت</item>
+        <item>ترابایت</item>
+        <item>پتابایت</item>
+        <item>اگزابایت</item>
+        <item>زتابایت</item>
+        <item>یوتابایت</item>
+    </string-array>
+</resources>
