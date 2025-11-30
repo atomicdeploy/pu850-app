@@ -37,6 +37,10 @@ android {
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << "-Xlint:deprecation"
+}
+
 androidComponents {
     onVariants(selector().all()) { variant ->
         def capitalizedName = variant.name.capitalize()
@@ -86,6 +90,7 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.2.0'
     
     // Networking
     implementation 'org.java-websocket:Java-WebSocket:1.5.3'

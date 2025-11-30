@@ -85,6 +85,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.NotificationCompat;
@@ -92,6 +93,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.core.os.LocaleListCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.pandcaspian.indicator.utils.FileDownloader;
@@ -131,6 +133,44 @@ import ir.hamsaa.persiandatepicker.api.PersianPickerDate;
 import ir.hamsaa.persiandatepicker.api.PersianPickerListener;
 
 public class MainActivity extends AppCompatActivity {
+
+	// Helper method to perform haptic feedback (replaces deprecated vibrate)
+	private void performHapticFeedback() {
+		Vibrator vibrator = (Vibrator) getSystemService(Vibrator.class);
+		if (vibrator != null && vibrator.hasVibrator()) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+				vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK));
+			} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+				vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE));
+			}
+		}
+	}
+
+	// Helper method to hide soft keyboard (replaces deprecated method)
+	private void hideSoftKeyboard(View view) {
+		InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null && view != null) {
+			imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+		}
+	}
+
+	// Helper method to show soft keyboard
+	private void showSoftKeyboard(View view) {
+		InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null && view != null) {
+			view.requestFocus();
+			imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+		}
+	}
+
+	// Helper method to get current locale
+	private Locale getCurrentLocale() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			return Resources.getSystem().getConfiguration().getLocales().get(0);
+		} else {
+			return Resources.getSystem().getConfiguration().locale;
+		}
+	}
 
 	final int[] fromDate = { 0, 0, 0 }, toDate = { 0, 0, 0 };
 
@@ -1021,6 +1061,14 @@ public class MainActivity extends AppCompatActivity {
 
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+
+		// Register back pressed callback
+		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+			@Override
+			public void handleOnBackPressed() {
+				handleBackPressed();
+			}
+		});
 
 		if (this.isFinishing())
 			return;
@@ -5216,7 +5264,7 @@ public class MainActivity extends AppCompatActivity {
 
 		Resources resources = this.getResources();
 		Configuration config = resources.getConfiguration();
-		Locale locale = Resources.getSystem().getConfiguration().locale;
+		Locale locale = getCurrentLocale();
 
 		if (SystemLanguage.isBlank())
 		{
@@ -5242,8 +5290,8 @@ public class MainActivity extends AppCompatActivity {
 		// config.locale = locale;
 		config.setLocale(locale);
 		config.setLayoutDirection(locale);
-		resources.updateConfiguration(config, resources.getDisplayMetrics());
-		this.createConfigurationContext(config);
+		// Use createConfigurationContext instead of deprecated updateConfiguration
+		getBaseContext().getResources().updateConfiguration(config, resources.getDisplayMetrics());
 
 		String currentLang = getIntent().getStringExtra("currentLang");
 
@@ -5401,8 +5449,7 @@ public class MainActivity extends AppCompatActivity {
 			mSocket.close();
 	}
 
-	@Override
-	public void onBackPressed() {
+	private void handleBackPressed() {
 		final ImageView imageViewPrintPaper = (ImageView) findViewById(R.id.imageViewPrintPaper);
 
 		if (imageViewPrintPaper.getVisibility() == View.VISIBLE) {
@@ -5426,6 +5473,61 @@ public class MainActivity extends AppCompatActivity {
 		AlertDialog dialog = builder.create();
 
 		dialog.show();
+	}
+
+	/**
+	 * Sets up click listeners for the card containers that delegate to their corresponding buttons.
+	 * This ensures the entire card area is clickable, not just the button inside.
+	 */
+	private void setupCardClickDelegates() {
+		// Card click delegates - each card click triggers the corresponding button
+		View cardTare = findViewById(R.id.cardTare);
+		View cardShow = findViewById(R.id.cardShow);
+		View cardHide = findViewById(R.id.cardHide);
+		View cardPower = findViewById(R.id.cardPower);
+		View cardDevelop = findViewById(R.id.cardDevelop);
+		View cardConnect = findViewById(R.id.cardConnect);
+		View cardReceipt = findViewById(R.id.cardReceipt);
+		View cardReport = findViewById(R.id.cardReport);
+		View cardSettings = findViewById(R.id.cardSettings);
+
+		Button buttonTare = findViewById(R.id.buttonTare);
+		Button buttonShow = findViewById(R.id.buttonShow);
+		Button buttonHide = findViewById(R.id.buttonHide);
+		Button buttonPower = findViewById(R.id.buttonPower);
+		Button buttonDevelop = findViewById(R.id.buttonDevelop);
+		Button buttonConnect = findViewById(R.id.buttonConnect);
+		Button buttonReceipt = findViewById(R.id.buttonReceipt);
+		Button buttonReport = findViewById(R.id.buttonReport);
+		Button buttonSettings = findViewById(R.id.buttonSettings);
+
+		if (cardTare != null && buttonTare != null) {
+			cardTare.setOnClickListener(v -> buttonTare.performClick());
+		}
+		if (cardShow != null && buttonShow != null) {
+			cardShow.setOnClickListener(v -> buttonShow.performClick());
+		}
+		if (cardHide != null && buttonHide != null) {
+			cardHide.setOnClickListener(v -> buttonHide.performClick());
+		}
+		if (cardPower != null && buttonPower != null) {
+			cardPower.setOnClickListener(v -> buttonPower.performClick());
+		}
+		if (cardDevelop != null && buttonDevelop != null) {
+			cardDevelop.setOnClickListener(v -> buttonDevelop.performClick());
+		}
+		if (cardConnect != null && buttonConnect != null) {
+			cardConnect.setOnClickListener(v -> buttonConnect.performClick());
+		}
+		if (cardReceipt != null && buttonReceipt != null) {
+			cardReceipt.setOnClickListener(v -> buttonReceipt.performClick());
+		}
+		if (cardReport != null && buttonReport != null) {
+			cardReport.setOnClickListener(v -> buttonReport.performClick());
+		}
+		if (cardSettings != null && buttonSettings != null) {
+			cardSettings.setOnClickListener(v -> buttonSettings.performClick());
+		}
 	}
 
 }

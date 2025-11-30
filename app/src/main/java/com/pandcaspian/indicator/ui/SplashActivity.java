@@ -15,6 +15,7 @@ import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 
@@ -44,6 +45,14 @@ public class SplashActivity extends AppCompatActivity {
 
         // Keep the splash screen visible until our custom animation starts
         splashScreen.setKeepOnScreenCondition(() -> false);
+
+        // Disable back button during splash
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Do nothing - back button disabled during splash
+            }
+        });
 
         initViews();
         startAnimations();
@@ -151,15 +160,14 @@ public class SplashActivity extends AppCompatActivity {
             public void onAnimationEnd(Animator animation) {
                 Intent intent = new Intent(SplashActivity.this, MainActivity.class);
                 startActivity(intent);
-                overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, R.anim.fade_in, R.anim.fade_out);
+                } else {
+                    overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+                }
                 finish();
             }
         });
         fadeOut.start();
-    }
-
-    @Override
-    public void onBackPressed() {
-        // Disable back button during splash
     }
 }
