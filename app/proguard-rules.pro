@@ -19,3 +19,14 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# SLF4J - not used on Android, safe to ignore
+-dontwarn org.slf4j.**
+-dontwarn javax.servlet.**
+-dontwarn javax.annotation.**
+
+# Java-WebSocket library
+-keep class org.java_websocket.** { *; }
+-keepclassmembers class * extends org.java_websocket.WebSocket {
+    public *;
+}
