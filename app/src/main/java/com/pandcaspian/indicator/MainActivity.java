@@ -175,6 +175,99 @@ public class MainActivity extends AppCompatActivity {
 		}
 	}
 
+	// ========== HTTP Request Helper Methods ==========
+
+	/**
+	 * Create a configured HttpRequest with standard callbacks for this activity
+	 */
+	private HttpRequest createRequest() {
+		return new HttpRequest()
+			.onDateTimeReceived((dateTime, server) -> onDateTimeReceived(dateTime, server))
+			.onError((e, statusCode, url) -> {
+				if (e instanceof HttpRequest.HttpException) {
+					HttpRequest.HttpException httpEx = (HttpRequest.HttpException) e;
+					onHttpError(statusCode, httpEx.getStatusMessage(), url);
+				} else {
+					onHttpError(e, url);
+				}
+			})
+			.onComplete(() -> {
+				isPerformingRequest = false;
+				refreshConnectButton();
+			});
+	}
+
+	/**
+	 * Perform a GET request with standard callbacks
+	 */
+	private void performGetRequest(String url) {
+		if (checkRequestPreconditions()) return;
+		
+		isPerformingRequest = true;
+		refreshConnectButton();
+		
+		createRequest()
+			.get(url)
+			.onSuccess((response, statusCode) -> updateResults(url, response))
+			.execute();
+	}
+
+	/**
+	 * Perform a POST request with standard callbacks
+	 */
+	private void performPostRequest(String url) {
+		if (checkRequestPreconditions()) return;
+		
+		isPerformingRequest = true;
+		refreshConnectButton();
+		
+		createRequest()
+			.post(url)
+			.onSuccess((response, statusCode) -> updateResults(url, response))
+			.execute();
+	}
+
+	/**
+	 * Perform a binary POST request (for receipts/reports)
+	 */
+	private void performBinaryPostRequest(String url) {
+		if (checkRequestPreconditions()) return;
+		
+		isPerformingRequest = true;
+		refreshConnectButton();
+		
+		createRequest()
+			.post(url)
+			.collectAsBinary(true)
+			.onBinarySuccess((data, statusCode) -> {
+				BulkData = data;
+				updateResults(url, new String(data));
+			})
+			.execute();
+	}
+
+	/**
+	 * Check if we can perform a request
+	 */
+	private boolean checkRequestPreconditions() {
+		if ((isPerformingRequest || lastReadStatus == 1)) {
+			if (lastReadStatus != 1) {
+				Toast toast = makeToast(this, R.string.str_another_request_already_performing, R.drawable.ic_icon_wait, Toast.LENGTH_LONG);
+				toast.show();
+			} else {
+				displayResult(getString(R.string.str_operation_not_permitted));
+			}
+			refreshConnectButton();
+			return true;
+		}
+		
+		if (isFinishing()) {
+			return true;
+		}
+		
+		return false;
+	}
+
 	final int[] fromDate = { 0, 0, 0 }, toDate = { 0, 0, 0 };
 
 	final int[] PrintPaperInfo = { -1, -1 };
@@ -1892,7 +1985,7 @@ public class MainActivity extends AppCompatActivity {
 				}
 
 				String sUrl = String.format("http://%s/action/tare", serverAddress);
-				new HttpRequest(MainActivity.this).execute(sUrl, "POST");
+				performPostRequest(sUrl);
 			}
 		});
 
@@ -1912,7 +2005,7 @@ public class MainActivity extends AppCompatActivity {
 				}
 
 				String sUrl = String.format("http://%s/weight/display?value=hide", serverAddress);
-				new HttpRequest(MainActivity.this).execute(sUrl, "POST");
+				performPostRequest(sUrl);
 			}
 		});
 
@@ -1932,7 +2025,7 @@ public class MainActivity extends AppCompatActivity {
 				}
 
 				String sUrl = String.format("http://%s/weight/display?value=show", serverAddress);
-				new HttpRequest(MainActivity.this).execute(sUrl, "POST");
+				performPostRequest(sUrl);
 			}
 		});
 
@@ -1957,7 +2050,7 @@ public class MainActivity extends AppCompatActivity {
 				}
 
 				String sUrl = String.format("http://%s/power/get", serverAddress);
-				new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+				performGetRequest(sUrl);
 			}
 		});
 
@@ -1994,7 +2087,7 @@ public class MainActivity extends AppCompatActivity {
 						PrintPaperInfo[0] = 1; // Receipt
 
 						String sUrl = String.format("http://%s/is_exec", serverAddress);
-						new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+						performGetRequest(sUrl);
 
 					}
 				});
@@ -2035,7 +2128,7 @@ public class MainActivity extends AppCompatActivity {
 						PrintPaperInfo[0] = 2; // Report
 
 						String sUrl = String.format("http://%s/is_exec", serverAddress);
-						new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+						performGetRequest(sUrl);
 
 					}
 				});
@@ -2169,7 +2262,7 @@ public class MainActivity extends AppCompatActivity {
 					}
 
 					String sUrl = String.format("http://%s/weight/get", serverAddress);
-					new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+					performGetRequest(sUrl);
 					return;
 				}
 				*/
@@ -2199,7 +2292,7 @@ public class MainActivity extends AppCompatActivity {
 						mSocket.send("datetime");
 
 						String sUrl = String.format("http://%s/pu", serverAddress);
-						new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+						performGetRequest(sUrl);
 
 						isPerformingRequest = true;
 					}
@@ -2207,7 +2300,7 @@ public class MainActivity extends AppCompatActivity {
 						isPuRead = false;
 
 						String sUrl = String.format("http://%s/datetime/get", serverAddress);
-						new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+						performGetRequest(sUrl);
 
 						isPerformingRequest = true;
 					}
@@ -2250,7 +2343,7 @@ public class MainActivity extends AppCompatActivity {
 											String formattedDate = dateFormat.format(currentDate);
 
 											String sUrl = String.format("http://%s/datetime/set?val=" + formattedDate, serverAddress);
-											new HttpRequest(MainActivity.this).execute(sUrl, "POST");
+											performPostRequest(sUrl);
 
 											isPuRead = false;
 
@@ -2427,8 +2520,10 @@ public class MainActivity extends AppCompatActivity {
 				// RemoteViews notificationLayout = new RemoteViews(getPackageName(), R.layout.notification_layout);
 				// setListeners(notificationLayout);
 
-				// Create an instance of FileDownloader
-				final FileDownloader downloadTask = new FileDownloader(MainActivity.this, String.format("http://%s/file/download?filename=fil/%s", serverAddress, fileName), outputFile);
+				// Create FileDownloader with new API
+				final FileDownloader downloadTask = new FileDownloader(MainActivity.this)
+					.url(String.format("http://%s/file/download?filename=fil/%s", serverAddress, fileName))
+					.targetFile(outputFile);
 
 				NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 				NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(getApplicationContext(), "download");
@@ -2640,95 +2735,79 @@ public class MainActivity extends AppCompatActivity {
 
 				progressDialog.show();
 
-				downloadTask.onFileInfoReceived = new FileDownloader.OnFileInfoReceived() {
-					@Override
-					public void onFileInfoReceived(FileDownloader downloadTask, long fileSize, String fileName) {
+				// Configure download callbacks using new fluent API
+				downloadTask
+					.onMetadata(metadata -> {
 						progressBar.setIndeterminate(false);
-						progressBar.setMax((int) fileSize);
+						progressBar.setMax((int) metadata.fileSize);
 						notificationBuilder.setProgress(100, 0, false).setContentInfo(0 + "%");
-						notificationBuilder.setContentText(fileName).setOngoing(true);
+						notificationBuilder.setContentText(metadata.fileName).setOngoing(true);
 						notificationManager.notify(/*NOTIFICATION_ID*/1, notificationBuilder.build());
-					}
-				};
-
-				downloadTask.onProgressUpdate = new FileDownloader.OnProgressUpdate() {
-					@Override
-					public void onProgressUpdate(FileDownloader downloadTask, int progress) {
-						progressBar.setProgress(progress);
+					})
+					.onProgress((downloaded, total, percent) -> {
+						progressBar.setProgress((int) downloaded);
 
 						if (SystemClock.elapsedRealtime() - mLastClickTime[0] < 100) return;
 
 						mLastClickTime[0] = SystemClock.elapsedRealtime();
 
-						final int percentage = (int) (((float) progress / progressBar.getMax()) * 100);
-
 						notificationBuilder.setOngoing(true)
-								.setProgress(100, percentage, false)
-								.setContentInfo(percentage + "%")
-								.setSubText(percentage + "%");
+								.setProgress(100, percent, false)
+								.setContentInfo(percent + "%")
+								.setSubText(percent + "%");
 
-						if (percentage != mLastClickTime[1])
+						if (percent != mLastClickTime[1])
 						{
-							mLastClickTime[1] = percentage;
+							mLastClickTime[1] = percent;
 							notificationManager.notify(/*NOTIFICATION_ID*/1, notificationBuilder.build());
 						}
 
-						runOnUiThread(new Runnable() {
-							@Override
-							public void run() {
-								try {
-									final Locale locale = Locale.getDefault();
-									setProgressCaption(progressTextView, progressBar);
-									// progressTextView.setText(String.format(locale, "%d/%d", progressBar.getProgress(), progressBar.getMax()));
-									percentageTextView.setText(String.format(locale, "%d%%", percentage));
-								} catch (Exception e) {
-									e.printStackTrace();
-								}
+						runOnUiThread(() -> {
+							try {
+								final Locale locale = Locale.getDefault();
+								setProgressCaption(progressTextView, progressBar);
+								percentageTextView.setText(String.format(locale, "%d%%", percent));
+							} catch (Exception e) {
+								e.printStackTrace();
 							}
 						});
-					}
-				};
-
-				downloadTask.onCompleted = new FileDownloader.OnCompleted() {
-					@Override
-					public void onCompleted(FileDownloader downloadTask) {
+					})
+					.onCompleted(file -> {
 						progressDialog.dismiss();
-
-						// cancel notification
 						notificationManager.cancel(/*NOTIFICATION_ID*/1);
 
-						if (downloadTask.isCancelled())
-						{
+						if (downloadTask.isCancelled()) {
 							onFileReceiveStop();
 
 							notificationBuilder.setContentText("Download cancelled").setSubText(null)
 									.setOngoing(false)
-									// Removes the progress bar
-									.setProgress(0,0,false);
+									.setProgress(0, 0, false);
 							notificationManager.notify(/*NOTIFICATION_ID*/1, notificationBuilder.build());
 
 							Toast toast = makeToast(MainActivity.this, "Download cancelled", R.drawable.ic_icon_warning, Toast.LENGTH_SHORT);
 							toast.show();
+						} else {
+							lastReadStatus = -1;
+
+							notificationBuilder.setContentText("Download completed").setSubText(null)
+									.setOngoing(false)
+									.setProgress(0, 0, false);
+							notificationManager.notify(/*id*/ 1, notificationBuilder.build());
+
+							Toast toast = makeToast(MainActivity.this, "Download completed", R.drawable.ic_icon_information, Toast.LENGTH_SHORT);
+							toast.show();
 						}
-					}
+					})
+					.onError(e -> {
+						progressDialog.dismiss();
+						notificationManager.cancel(/*NOTIFICATION_ID*/1);
 
-					@Override
-					public void onCompleted(FileDownloader downloadTask, File outputFile) {
-						lastReadStatus = -1;
-
-						notificationBuilder.setContentText("Download completed").setSubText(null)
-								.setOngoing(false)
-								// Removes the progress bar
-								.setProgress(0,0,false);
-						notificationManager.notify(/*id*/ 1, notificationBuilder.build());
-
-						Toast toast = makeToast(MainActivity.this, "Download completed", R.drawable.ic_icon_information, Toast.LENGTH_SHORT);
+						Toast toast = makeToast(MainActivity.this, "Download error: " + e.getMessage(), R.drawable.ic_icon_error, Toast.LENGTH_LONG);
 						toast.show();
-					}
-				};
+					});
 
 				// Start the download
-				downloadTask.execute("parameters passed here");
+				downloadTask.start();
 
 				/*
 				new Thread(new Runnable() {
@@ -3176,7 +3255,7 @@ public class MainActivity extends AppCompatActivity {
 								if (!isPuRead && !isPerformingRequest && (mSocket == null || !mSocket.isClosing())) {
 									checkAvailInBackground = false;
 									String sUrl = String.format("http://%s/pu", serverAddress);
-									new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+									performGetRequest(sUrl);
 									isPerformingRequest = true;
 								}
 							} else {
@@ -3264,7 +3343,7 @@ public class MainActivity extends AppCompatActivity {
 					mSocket.send("datetime");
 				}
 				else {
-					new HttpRequest(MainActivity.this).execute(String.format("http://%s/datetime/get", serverAddress));
+					performGetRequest(String.format("http://%s/datetime/get", serverAddress));
 				}
 
 				if (!isWsConnecting && (mSocket == null || !mSocket.isOpen()) && !isPuRead) {
@@ -3993,32 +4072,37 @@ public class MainActivity extends AppCompatActivity {
 
 		if (!isPuRead || (isNotSnRead && lastReadStatus == 0)) {
 			String sUrl = String.format("http://%s/pu", serverAddress);
-			new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+			performGetRequest(sUrl);
 			return;
 		}
 
 		if (SystemLanguage.isBlank() || !isLanguageReceivedFromPu) {
 			String sUrl = String.format("http://%s/lang", serverAddress);
-			new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+			performGetRequest(sUrl);
 			return;
 		}
 
 		if (currentUser.isBlank() && isPuRead) {
 			String sUrl = String.format("http://%s/username", serverAddress);
-			new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+			performGetRequest(sUrl);
 			return;
 		}
 
 		if (ShowHiddenWeight == null) {
 			String sUrl = String.format("http://%s/weight/display", serverAddress);
-			new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+			performGetRequest(sUrl);
 			return;
 		}
 
 		if (DeviceClockDiff == -1 && backgroundDateChecker == null) {
-			backgroundDateChecker = new HttpRequest(MainActivity.this);
-			backgroundDateChecker.inBackground = true;
-			backgroundDateChecker.execute("https://www.gstatic.com/", "HEAD");
+			backgroundDateChecker = new HttpRequest()
+				.method("HEAD")
+				.url("https://www.gstatic.com/")
+				.onDateTimeReceived((dateTime, server) -> onDateTimeReceived(dateTime, server))
+				.onComplete(() -> {
+					// Background check complete
+				})
+				.execute();
 			return;
 		}
 	}
@@ -4250,10 +4334,7 @@ public class MainActivity extends AppCompatActivity {
 						PrintPaperInfo[1] = num;
 
 						String sUrl = String.format("http://%s/receipt?id=%s", serverAddress, num);
-						HttpRequest request = new HttpRequest(MainActivity.this);
-						request.collectAsBulk = true;
-						request.showProgress = true;
-						request.execute(sUrl, "POST");
+						performBinaryPostRequest(sUrl);
 					} catch (NumberFormatException e) {
 						e.printStackTrace();
 						final String message = e.getMessage();
@@ -4453,10 +4534,7 @@ public class MainActivity extends AppCompatActivity {
 										"http://%s/report?fromYear=%s&fromMonth=%s&fromDay=%s&toYear=%s&toMonth=%s&toDay=%s",
 										serverAddress, fromDate[0], fromDate[1], fromDate[2], toDate[0], toDate[1],
 										toDate[2]);
-								HttpRequest request = new HttpRequest(MainActivity.this);
-								request.collectAsBulk = true;
-								request.showProgress = true;
-								request.execute(sUrl, "POST");
+								performBinaryPostRequest(sUrl);
 								break;
 
 							default:
@@ -4715,7 +4793,7 @@ public class MainActivity extends AppCompatActivity {
 						return;
 
 					String sUrl = String.format("http://%s/power", serverAddress);
-					new HttpRequest(MainActivity.this).execute(sUrl, "GET");
+					performGetRequest(sUrl);
 					return;
 				}
 
@@ -5310,8 +5388,8 @@ public class MainActivity extends AppCompatActivity {
 
 	}
 
-	public void onHttpError(final Exception e, HttpRequest r) {
-		if (!r.apiUrl.contains(serverAddress))
+	public void onHttpError(final Exception e, final String url) {
+		if (url == null || !url.contains(serverAddress))
 			return;
 
 		runOnUiThread(new Runnable() {
@@ -5335,17 +5413,13 @@ public class MainActivity extends AppCompatActivity {
 
 				if (e instanceof ConnectException && isServerAvailable) {
 					checkAvailInBackground = false;
-					// TextView textViewServerAddress = findViewById(R.id.textViewServerAddr);
-					// textViewServerAddress.performClick();
-
-					// isPuRead = false;
 				}
 			}
 		});
 	}
 
-	public void onHttpError(final int statusCode, final String responseMessage, final String url, HttpRequest request) {
-		if (!url.contains(serverAddress))
+	public void onHttpError(final int statusCode, final String responseMessage, final String url) {
+		if (url == null || !url.contains(serverAddress))
 			return;
 
 		runOnUiThread(new Runnable() {
@@ -5362,23 +5436,20 @@ public class MainActivity extends AppCompatActivity {
 						mSocket = null;
 				}
 
-				if (!request.urlConnection.getContentType().contains("text/html"))
-				{
-					if (url.contains("/receipt") || url.contains("/report")) {
-						String Kind = getString(R.string.File);
-						if (url.contains("/receipt")) Kind = getString(R.string.Receipt);
-						if (url.contains("/report")) Kind = getString(R.string.Report);
-						if (statusCode == 404)
-							message = String.format(getString(R.string.str_specified_not_exist), Kind);
-						if (statusCode == 403)
-							message = getString(R.string.str_operation_not_permitted);
-						if (statusCode == 500)
-							message = getString(R.string.str_request_failed).replaceAll(":", "") + ".";
+				if (url.contains("/receipt") || url.contains("/report")) {
+					String Kind = getString(R.string.File);
+					if (url.contains("/receipt")) Kind = getString(R.string.Receipt);
+					if (url.contains("/report")) Kind = getString(R.string.Report);
+					if (statusCode == 404)
+						message = String.format(getString(R.string.str_specified_not_exist), Kind);
+					if (statusCode == 403)
+						message = getString(R.string.str_operation_not_permitted);
+					if (statusCode == 500)
+						message = getString(R.string.str_request_failed).replaceAll(":", "") + ".";
 
-						displayResult(message);
+					displayResult(message);
 
-						message = "";
-					}
+					message = "";
 				}
 
 				if (handleHttpErrorCode(statusCode)) message = ""; // handled
