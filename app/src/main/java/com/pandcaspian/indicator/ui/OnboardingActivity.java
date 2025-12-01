@@ -71,17 +71,22 @@ public class OnboardingActivity extends AppCompatActivity {
         boolean completed = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false);
         
         // Also check if this is a new version
-        int lastVersion = prefs.getInt(KEY_LAST_VERSION, 0);
-        int currentVersion = getCurrentVersionCode(context);
+        long lastVersion = prefs.getLong(KEY_LAST_VERSION, 0);
+        long currentVersion = getCurrentVersionCode(context);
         
         // Show onboarding if never completed OR if major version changed
         return !completed || (currentVersion / 100 > lastVersion / 100);
     }
 
-    private static int getCurrentVersionCode(android.content.Context context) {
+    private static long getCurrentVersionCode(android.content.Context context) {
         try {
-            return context.getPackageManager()
-                    .getPackageInfo(context.getPackageName(), 0).versionCode;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                return context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+            } else {
+                return context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).versionCode;
+            }
         } catch (Exception e) {
             return 0;
         }
@@ -266,13 +271,17 @@ public class OnboardingActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         prefs.edit()
                 .putBoolean(KEY_ONBOARDING_COMPLETE, true)
-                .putInt(KEY_LAST_VERSION, getCurrentVersionCode(this))
+                .putLong(KEY_LAST_VERSION, getCurrentVersionCode(this))
                 .apply();
 
         // Navigate to main activity
         startActivity(new Intent(this, MainActivity.class));
         finish();
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, R.anim.fade_in, R.anim.fade_out);
+        } else {
+            overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+        }
     }
 
     private int dpToPx(int dp) {

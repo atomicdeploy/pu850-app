@@ -24,6 +24,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * @deprecated Use {@link ModernHttpRequest} instead, which uses ExecutorService
+ * and provides a modern fluent API with better error handling.
+ */
+@Deprecated
+@SuppressWarnings("deprecation")
 public class HttpRequest extends AsyncTask<String, Integer, String> {
 
 	private final MainActivity context;

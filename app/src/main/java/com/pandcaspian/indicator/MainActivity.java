@@ -168,7 +168,10 @@ public class MainActivity extends AppCompatActivity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			return Resources.getSystem().getConfiguration().getLocales().get(0);
 		} else {
-			return Resources.getSystem().getConfiguration().locale;
+			// Suppress deprecation warning for API < 24
+			@SuppressWarnings("deprecation")
+			Locale locale = Resources.getSystem().getConfiguration().locale;
+			return locale;
 		}
 	}
 
@@ -452,7 +455,7 @@ public class MainActivity extends AppCompatActivity {
 
 		// imageViewPrintPaper.setImageBitmap(bmpPrintPaper);
 
-		BitmapDrawable drawable = new BitmapDrawable(bmpPrintPaper);
+		BitmapDrawable drawable = new BitmapDrawable(getResources(), bmpPrintPaper);
 		drawable.setAntiAlias(false);
 		drawable.setFilterBitmap(false);
 		drawable.setDither(false);
@@ -571,12 +574,7 @@ public class MainActivity extends AppCompatActivity {
 			toast.show();
 		}
 
-		Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-			v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK));
-		} else {
-			v.vibrate(100);
-		}
+		performHapticFeedback();
 
 		if (!success || uri == null) return;
 

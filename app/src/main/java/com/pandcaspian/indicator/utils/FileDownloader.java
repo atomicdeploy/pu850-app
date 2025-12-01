@@ -28,6 +28,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * @deprecated Use {@link ModernFileDownloader} instead, which uses ExecutorService
+ * and supports resume/pause, metadata checking, and better error handling.
+ */
+@Deprecated
+@SuppressWarnings("deprecation")
 public class FileDownloader extends AsyncTask<String, String, String> {
 
 	// private static final int TIMEOUT = 1000;
