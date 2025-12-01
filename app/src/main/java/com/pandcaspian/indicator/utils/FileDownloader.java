@@ -416,7 +416,7 @@ public class FileDownloader {
         }
 
         try {
-            fileName = URLDecoder.decode(fileName, StandardCharsets.ISO_8859_1.name());
+            fileName = URLDecoder.decode(fileName, StandardCharsets.ISO_8859_1);
         } catch (Exception e) {
             Log.w(TAG, "Error decoding filename", e);
         }

@@ -4099,9 +4099,7 @@ public class MainActivity extends AppCompatActivity {
 				.method("HEAD")
 				.url("https://www.gstatic.com/")
 				.onDateTimeReceived((dateTime, server) -> onDateTimeReceived(dateTime, server))
-				.onComplete(() -> {
-					// Background check complete
-				})
+				.onComplete(() -> backgroundDateChecker = null)
 				.execute();
 			return;
 		}
