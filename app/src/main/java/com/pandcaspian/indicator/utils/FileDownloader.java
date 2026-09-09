@@ -1,291 +1,499 @@
 package com.pandcaspian.indicator.utils;
 
 import android.content.Context;
-import android.os.AsyncTask;
-import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 import android.webkit.URLUtil;
-import android.widget.Toast;
 
-import com.pandcaspian.indicator.MainActivity;
+import androidx.annotation.NonNull;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.InterruptedByTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
-public class FileDownloader extends AsyncTask<String, String, String> {
+/**
+ * Modern file downloader using ExecutorService.
+ * <p>
+ * Features:
+ * - Resume/pause support with HTTP Range headers
+ * - Metadata fetching before download
+ * - Progress tracking with callbacks
+ * - Proper error handling
+ * - Thread-safe state management
+ * - WakeLock management for background downloads
+ */
+public class FileDownloader {
 
-	// private static final int TIMEOUT = 1000;
+    private static final String TAG = "FileDownloader";
+    private static final int BUFFER_SIZE = 8192;
+    private static final int CONNECT_TIMEOUT = 15000;
+    private static final int READ_TIMEOUT = 10000;
 
-	private final MainActivity context;
-	private PowerManager.WakeLock mWakeLock;
+    private final Context context;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-	public OnFileInfoReceived onFileInfoReceived;
-	public OnProgressUpdate onProgressUpdate;
-	public OnCompleted onCompleted;
+    // Download configuration
+    private String fileUrl;
+    private File targetFile;
+    private PowerManager.WakeLock wakeLock;
 
-	private String fileUrl;
-	private File mTargetFile;
+    // State management
+    private final AtomicBoolean paused = new AtomicBoolean(false);
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private final AtomicLong downloadedBytes = new AtomicLong(0);
+    private long totalBytes = -1;
+    private Future<?> downloadFuture;
 
-	private boolean isCancelled = false;
-	private int lastProgress = -1;
+    // Metadata
+    private FileMetadata metadata;
 
-	/**
-	 * Constructor parameters:
-	 * @context (current Activity)
-	 * @fileUrl (URL to download file)
-	 * @targetFile (File object to write, it will be overwritten if exist)
-	 */
-	public FileDownloader(MainActivity context, String fileUrl, File targetFile) {
-		this.context = context;
-		this.fileUrl = fileUrl;
-		this.mTargetFile = targetFile;
-	}
+    // Callbacks
+    private OnMetadataListener onMetadata;
+    private OnProgressListener onProgress;
+    private OnCompletedListener onCompleted;
+    private OnErrorListener onError;
 
-	/**
-	 * Before starting background thread
-	 */
-	@Override
-	protected void onPreExecute() {
-		super.onPreExecute();
+    /**
+     * File metadata
+     */
+    public static class FileMetadata {
+        public final long fileSize;
+        public final String fileName;
+        public final String lastModified;
+        public final boolean supportsResume;
+        public final String contentType;
 
-		// take CPU lock to prevent CPU from going off if the user presses the power button to turn the screen off during download
-		PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-		mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getClass().getName());
-	}
+        public FileMetadata(long fileSize, String fileName, String lastModified,
+                           boolean supportsResume, String contentType) {
+            this.fileSize = fileSize;
+            this.fileName = fileName;
+            this.lastModified = lastModified;
+            this.supportsResume = supportsResume;
+            this.contentType = contentType;
+        }
+    }
 
-	/**
-	 * Download file in the background thread
-	 */
-	@Override
-	// protected Boolean doInBackground(String... params) {
-	protected String doInBackground(String... params) {
-		InputStream input = null;
-		OutputStream output = null;
-		HttpURLConnection urlConnection = null;
+    /**
+     * Download state
+     */
+    public enum State {
+        IDLE,
+        FETCHING_METADATA,
+        DOWNLOADING,
+        PAUSED,
+        COMPLETED,
+        ERROR,
+        CANCELLED
+    }
 
-		try {
-			URL url = new URL(fileUrl);
+    private volatile State state = State.IDLE;
 
-			// Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("192.168.1.30", 8888));
-			urlConnection = (HttpURLConnection) url.openConnection(/*proxy*/);
+    public FileDownloader(@NonNull Context context) {
+        this.context = context.getApplicationContext();
+    }
 
-			urlConnection.setConnectTimeout(10000);
-			urlConnection.setReadTimeout(5000);
+    // ========== Configuration ==========
 
-			urlConnection.setInstanceFollowRedirects(true);
+    public FileDownloader url(@NonNull String url) {
+        this.fileUrl = url;
+        return this;
+    }
 
-			urlConnection.setRequestMethod("GET");
+    public FileDownloader targetFile(@NonNull File file) {
+        this.targetFile = file;
+        return this;
+    }
 
-			// urlConnection.setRequestMethod("HEAD");
+    public FileDownloader onMetadata(OnMetadataListener listener) {
+        this.onMetadata = listener;
+        return this;
+    }
 
-			// boolean rangeSupport = urlConnection.getHeaderField("Accept-Ranges").equals("bytes");
+    public FileDownloader onProgress(OnProgressListener listener) {
+        this.onProgress = listener;
+        return this;
+    }
 
-			// long existingFileSize = outputFile.length();
-			// if (existingFileSize < fileLength) {
-			// 	httpFileConnection.setRequestProperty("Range", "bytes=" + existingFileSize + "-" + fileLength);
-			// }
+    public FileDownloader onCompleted(OnCompletedListener listener) {
+        this.onCompleted = listener;
+        return this;
+    }
 
-			// if (params.length > 0) {
-			//     String rangeHeader = "bytes=" + params[0] + "-";
-			//     urlConnection.setRequestProperty("Range", rangeHeader);
-			// }
+    public FileDownloader onError(OnErrorListener listener) {
+        this.onError = listener;
+        return this;
+    }
 
-			// expectedStatusCode = HttpStatus.SC_PARTIAL_CONTENT;
+    // ========== Control Methods ==========
 
-			urlConnection.connect();
+    /**
+     * Fetch file metadata without downloading
+     */
+    public void fetchMetadata() {
+        if (fileUrl == null) {
+            notifyError(new IllegalStateException("URL not set"));
+            return;
+        }
 
-			// expect HTTP 200 OK, so we don't mistakenly save error report instead of the file
-			if (urlConnection.getResponseCode() != HttpURLConnection.HTTP_OK)
-				return "Server returned HTTP " + urlConnection.getResponseCode() + " " + urlConnection.getResponseMessage();
+        state = State.FETCHING_METADATA;
+        executor.execute(this::doFetchMetadata);
+    }
 
-			final String contentDisposition = urlConnection.getHeaderField("Content-Disposition");
+    /**
+     * Start or resume download
+     */
+    public void start() {
+        if (fileUrl == null || targetFile == null) {
+            notifyError(new IllegalStateException("URL or target file not set"));
+            return;
+        }
 
-			String fileName = URLUtil.guessFileName(String.valueOf(url), contentDisposition, null);
+        if (state == State.DOWNLOADING) {
+            Log.w(TAG, "Download already in progress");
+            return;
+        }
 
-			// try to get file name from content disposition
-			if (!contentDisposition.isEmpty()) {
-				String extracted = contentDisposition.replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
-				if (!extracted.isEmpty() && !extracted.equals(contentDisposition)) {
-					fileName = extracted;
-				}
-			}
+        paused.set(false);
+        cancelled.set(false);
+        state = State.DOWNLOADING;
 
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-				fileName = URLDecoder.decode(fileName, StandardCharsets.ISO_8859_1);
-			} else {
-				fileName = URLDecoder.decode(fileName, "ISO-8859-1");
-			}
+        acquireWakeLock();
+        downloadFuture = executor.submit(this::doDownload);
+    }
 
-			// get the file date from the last modified header
-			final String lastModified = urlConnection.getHeaderField("Last-Modified");
+    /**
+     * Pause the download (can be resumed)
+     */
+    public void pause() {
+        if (state != State.DOWNLOADING) return;
+        paused.set(true);
+        state = State.PAUSED;
+        releaseWakeLock();
+    }
 
-			if (!lastModified.isEmpty()) {
-				Date lastModifiedDate = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH).parse(lastModified);
-			}
+    /**
+     * Resume a paused download
+     */
+    public void resume() {
+        if (state != State.PAUSED) return;
+        start();
+    }
 
-			// get the file size from content-length header, used to calculate download percentage
-			// might be -1: server did not report the length
-			final long fileLength = urlConnection.getContentLengthLong();
+    /**
+     * Cancel the download
+     */
+    public void cancel() {
+        cancelled.set(true);
+        state = State.CANCELLED;
+        if (downloadFuture != null) {
+            downloadFuture.cancel(true);
+        }
+        releaseWakeLock();
+    }
 
-			if (onFileInfoReceived != null) {
-				onFileInfoReceived.onFileInfoReceived(this, fileLength, fileName);
-			}
+    /**
+     * Check if download is cancelled
+     */
+    public boolean isCancelled() {
+        return cancelled.get();
+    }
 
-			// input stream to read file
-			input = new BufferedInputStream(urlConnection.getInputStream(), 1024);
+    /**
+     * Get current state
+     */
+    public State getState() {
+        return state;
+    }
 
-			// output stream to write file
-			output = new FileOutputStream(mTargetFile, false); // false = overwrite, true = append
+    /**
+     * Get downloaded bytes
+     */
+    public long getDownloadedBytes() {
+        return downloadedBytes.get();
+    }
 
-			// FileChannel ch = ((FileOutputStream) output).getChannel();
-			// ch.position(offset);
-			// ch.write(ByteBuffer.wrap(data));
+    /**
+     * Get total bytes (-1 if unknown)
+     */
+    public long getTotalBytes() {
+        return totalBytes;
+    }
 
-			byte[] data = new byte[1024];
-			long total = 0;
-			int count;
+    /**
+     * Get progress percentage (0-100)
+     */
+    public int getProgressPercent() {
+        if (totalBytes <= 0) return 0;
+        return (int) ((downloadedBytes.get() * 100) / totalBytes);
+    }
 
-			while (true) {
-				// check if cancelled requested
-				if (isCancelled() || isCancelled) {
-					isCancelled = true;
-					return "Download cancelled";
-				}
+    /**
+     * Get file metadata
+     */
+    public FileMetadata getMetadata() {
+        return metadata;
+    }
 
-				try {
-					// read data from input stream
-					if ((count = input.read(data)) == -1) break;
-				}
-				catch (IOException e) {
-					return "Download Stopped";
-				}
+    /**
+     * Shutdown executor
+     */
+    public void shutdown() {
+        cancel();
+        executor.shutdown();
+    }
 
-				total += count;
+    // ========== Private Implementation ==========
 
-				if (fileLength > 0) // only if total length is known
-				{
-					// After this onProgressUpdate will be called
-					publishProgress(String.valueOf((int) ((total * 100) / fileLength)), String.valueOf(total));
-				}
+    private void doFetchMetadata() {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(fileUrl);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("HEAD");
+            connection.setConnectTimeout(CONNECT_TIMEOUT);
+            connection.setReadTimeout(READ_TIMEOUT);
+            connection.setInstanceFollowRedirects(true);
 
-				// write received data to file
-				output.write(data, 0, count);
-			}
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                notifyError(new IOException("Server returned HTTP " + responseCode));
+                return;
+            }
 
-			// flushing output
-			output.flush();
-		} catch (Exception e) {
-			Log.e("FileDownloader", e.getMessage());
-			e.printStackTrace();
-			return e.getMessage() + " by " + e.getClass().getName();
-			// onDownloadError() - e.g. file error
-		} finally {
+            metadata = parseMetadata(connection, url);
+            totalBytes = metadata.fileSize;
 
-			// closing streams
-			try {
-				if (input != null) input.close();
-			} catch (IOException ignored) {}
+            mainHandler.post(() -> {
+                if (onMetadata != null) {
+                    onMetadata.onMetadata(metadata);
+                }
+            });
 
-			try {
-				if (output != null) output.close();
-			} catch (IOException ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error fetching metadata", e);
+            notifyError(e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
 
-			// close urlConnection
-			if (urlConnection != null)
-				urlConnection.disconnect();
-		}
+    private void doDownload() {
+        HttpURLConnection connection = null;
+        InputStream input = null;
+        OutputStream output = null;
 
-		return null;
-	}
+        try {
+            // Check for existing partial download
+            long existingBytes = 0;
+            if (targetFile.exists()) {
+                existingBytes = targetFile.length();
+            }
 
-	/**
-	 * Update progress information
-	 */
-	@Override
-	protected void onProgressUpdate(String... values) {
-		super.onProgressUpdate(values);
+            URL url = new URL(fileUrl);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(CONNECT_TIMEOUT);
+            connection.setReadTimeout(READ_TIMEOUT);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestMethod("GET");
 
-		final int progress = Integer.parseInt(values[0]);
+            // Request resume if partial download exists
+            if (existingBytes > 0) {
+                connection.setRequestProperty("Range", "bytes=" + existingBytes + "-");
+            }
 
-		if (progress != lastProgress) {
-			lastProgress = progress;
-			Log.d("FileDownloader", String.format(Locale.ENGLISH, "Download Progress: %d%%", progress));
-		}
+            int responseCode = connection.getResponseCode();
 
-		final int total = Integer.parseInt(values[1]);
+            // Handle response codes
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // Server doesn't support resume or sent full file
+                existingBytes = 0;
+                downloadedBytes.set(0);
+            } else if (responseCode == HttpURLConnection.HTTP_PARTIAL) {
+                // Resume supported
+                downloadedBytes.set(existingBytes);
+            } else {
+                throw new IOException("Server returned HTTP " + responseCode + ": " + connection.getResponseMessage());
+            }
 
-		if (onProgressUpdate != null) {
-			onProgressUpdate.onProgressUpdate(this, total);
-		}
+            // Parse metadata if needed
+            if (metadata == null) {
+                metadata = parseMetadata(connection, url);
+            }
 
-	}
+            // Get total file size
+            long contentLength = connection.getContentLengthLong();
+            if (contentLength > 0) {
+                totalBytes = existingBytes + contentLength;
+            }
 
-	/**
-	 * After completing background task
-	 */
-	@Override
-	// protected void onPostExecute(Boolean result) {
-	protected void onPostExecute(String result) {
-		Log.i("FileDownloader", "Download PostExecute");
+            // Notify metadata
+            if (onMetadata != null) {
+                final FileMetadata meta = metadata;
+                mainHandler.post(() -> onMetadata.onMetadata(meta));
+            }
 
-		if (mWakeLock.isHeld())
-			mWakeLock.release();
+            // Open streams
+            input = new BufferedInputStream(connection.getInputStream(), BUFFER_SIZE);
 
-		if (onCompleted != null)
-			onCompleted.onCompleted(this);
+            // Open file (append if resuming)
+            boolean append = existingBytes > 0 && responseCode == HttpURLConnection.HTTP_PARTIAL;
+            output = new FileOutputStream(targetFile, append);
 
-		if (result != null) {
-			Log.e("FileDownloader", result);
-			Toast.makeText(context, String.format("Download error: %s", result), Toast.LENGTH_LONG).show();
-			return;
-		}
+            // Download loop
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
+            long lastProgressUpdate = 0;
 
-		Toast.makeText(context, "File downloaded", Toast.LENGTH_SHORT).show();
-	}
+            while ((bytesRead = input.read(buffer)) != -1) {
+                if (cancelled.get()) {
+                    state = State.CANCELLED;
+                    return;
+                }
 
-	@Override
-	protected void onCancelled() {
-		if (mWakeLock.isHeld())
-			mWakeLock.release();
+                if (paused.get()) {
+                    state = State.PAUSED;
+                    return;
+                }
 
-		if (onCompleted != null)
-			onCompleted.onCompleted(this);
+                output.write(buffer, 0, bytesRead);
+                downloadedBytes.addAndGet(bytesRead);
 
-		isCancelled = true;
-	}
+                // Throttle progress updates
+                long now = System.currentTimeMillis();
+                if (now - lastProgressUpdate >= 100) {
+                    lastProgressUpdate = now;
+                    notifyProgress();
+                }
+            }
 
-	public void cancel() {
-		isCancelled = true;
-		super.cancel(true);
-	}
+            output.flush();
+            state = State.COMPLETED;
+            notifyCompleted();
 
-	public interface OnFileInfoReceived {
-		void onFileInfoReceived(FileDownloader downloadTask, long fileSize, String fileName);
-	}
+        } catch (Exception e) {
+            Log.e(TAG, "Download error", e);
+            state = State.ERROR;
+            notifyError(e);
+        } finally {
+            closeQuietly(input);
+            closeQuietly(output);
+            if (connection != null) {
+                connection.disconnect();
+            }
+            releaseWakeLock();
+        }
+    }
 
-	public interface OnProgressUpdate {
-		void onProgressUpdate(FileDownloader downloadTask, int progress);
-	}
+    private FileMetadata parseMetadata(HttpURLConnection connection, URL url) {
+        long fileSize = connection.getContentLengthLong();
 
-	public interface OnCompleted {
-		void onCompleted(FileDownloader downloadTask);
+        // Get filename
+        String contentDisposition = connection.getHeaderField("Content-Disposition");
+        String fileName = URLUtil.guessFileName(url.toString(), contentDisposition, null);
 
-		void onCompleted(FileDownloader downloadTask, File outputFile);
-	}
+        if (contentDisposition != null && !contentDisposition.isEmpty()) {
+            String extracted = contentDisposition.replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
+            if (!extracted.isEmpty() && !extracted.equals(contentDisposition)) {
+                fileName = extracted;
+            }
+        }
+
+        try {
+            fileName = URLDecoder.decode(fileName, StandardCharsets.ISO_8859_1);
+        } catch (Exception e) {
+            Log.w(TAG, "Error decoding filename", e);
+        }
+
+        String lastModified = connection.getHeaderField("Last-Modified");
+        String acceptRanges = connection.getHeaderField("Accept-Ranges");
+        boolean supportsResume = "bytes".equalsIgnoreCase(acceptRanges);
+        String contentType = connection.getContentType();
+
+        return new FileMetadata(fileSize, fileName, lastModified, supportsResume, contentType);
+    }
+
+    private void acquireWakeLock() {
+        if (wakeLock == null) {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":download");
+                wakeLock.setReferenceCounted(false);
+            }
+        }
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            wakeLock.acquire(30 * 60 * 1000L); // 30 minute timeout
+        }
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+    }
+
+    private void closeQuietly(java.io.Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private void notifyProgress() {
+        if (onProgress != null) {
+            final long downloaded = downloadedBytes.get();
+            final long total = totalBytes;
+            final int percent = getProgressPercent();
+            mainHandler.post(() -> onProgress.onProgress(downloaded, total, percent));
+        }
+    }
+
+    private void notifyCompleted() {
+        if (onCompleted != null) {
+            mainHandler.post(() -> onCompleted.onCompleted(targetFile));
+        }
+    }
+
+    private void notifyError(Exception e) {
+        state = State.ERROR;
+        if (onError != null) {
+            mainHandler.post(() -> onError.onError(e));
+        }
+    }
+
+    // ========== Callback Interfaces ==========
+
+    public interface OnMetadataListener {
+        void onMetadata(FileMetadata metadata);
+    }
+
+    public interface OnProgressListener {
+        void onProgress(long downloadedBytes, long totalBytes, int percent);
+    }
+
+    public interface OnCompletedListener {
+        void onCompleted(File file);
+    }
+
+    public interface OnErrorListener {
+        void onError(Exception e);
+    }
 }

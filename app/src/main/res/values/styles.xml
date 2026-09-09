@@ -1,39 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:windowBackground">@color/colorBackground</item>
-        <item name="colorPrimary">@color/colorBackground</item>
-        <item name="colorPrimaryDark">@color/colorForeground</item>
-        <item name="colorAccent">@color/colorAccent</item>
+    <!-- Base Application Theme -->
+    <style name="Theme.PU850" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Primary brand colors -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryLight</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        
+        <!-- Secondary brand colors -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorSecondaryVariant">@color/colorAccentLight</item>
+        <item name="colorOnSecondary">@android:color/white</item>
+        
+        <!-- Background and surface -->
+        <item name="android:colorBackground">@color/colorBackground</item>
+        <item name="colorSurface">@color/elevatedBackground</item>
+        <item name="colorOnBackground">@color/colorForeground</item>
+        <item name="colorOnSurface">@color/colorForeground</item>
+        
+        <!-- Error colors -->
         <item name="colorError">@color/colorError</item>
-        <item name="android:disabledAlpha">0.6</item>
-        <item name="android:textColorPrimary">@color/colorForeground</item>
-        <item name="android:textColorHint">@color/colorGrayText</item>
-        <item name="android:fontFamily">@font/iransans</item>
-        <item name="fontFamily">@font/iransans</item>
-        <item name="android:textAlignment">gravity</item>
-        <item name="android:textDirection">locale</item>
-        <item name="numberPickerTheme">@style/NumberPickerStyle</item>
-        <item name="android:alertDialogStyle">@style/AlertDialogStyle</item>
-        <item name="alertDialogStyle">@style/AlertDialogStyle</item>
-        <item name="android:alertDialogTheme">@style/AlertDialogStyle</item>
-        <item name="alertDialogTheme">@style/AlertDialogStyle</item>
-        <item name="android:progressBarStyleHorizontal">@style/ProgressBarHorizontalStyle</item>
-        <item name="bottomSheetDialogTheme">@style/BottomSheetDialogTheme</item>
-        <item name="android:buttonStyle">@style/ButtonStyle</item>
-        <item name="buttonStyle">@style/ButtonStyle</item>
-        <item name="android:textViewStyle">@style/TextViewStyle</item>
+        <item name="colorOnError">@android:color/white</item>
+        
+        <!-- Status bar -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:statusBarColor">@color/colorBackground</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@color/colorBackground</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/colorForeground</item>
+        <item name="android:textColorSecondary">@color/colorSecondary</item>
+        <item name="android:textColorHint">@color/colorGrayText</item>
+        
+        <!-- Font -->
+        <item name="android:fontFamily">@font/iransans</item>
+        <item name="fontFamily">@font/iransans</item>
+        
+        <!-- Dialog styles -->
+        <item name="android:alertDialogStyle">@style/AlertDialogStyle</item>
+        <item name="alertDialogStyle">@style/AlertDialogStyle</item>
+        <item name="alertDialogTheme">@style/AlertDialogStyle</item>
+        <item name="bottomSheetDialogTheme">@style/BottomSheetDialogTheme</item>
+        
+        <!-- Button styles -->
+        <item name="android:buttonStyle">@style/Widget.PU850.Button</item>
+        <item name="buttonStyle">@style/Widget.PU850.Button</item>
+        <item name="materialButtonStyle">@style/Widget.PU850.Button.Filled</item>
+        
+        <!-- Other -->
+        <item name="android:disabledAlpha">0.38</item>
+        <item name="android:textAlignment">gravity</item>
+        <item name="android:textDirection">locale</item>
     </style>
 
-    <style name="AlertDialogStyle" parent="Theme.AppCompat.Light.Dialog.Alert">
+    <!-- Splash Screen Theme -->
+    <style name="Theme.PU850.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/colorBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_logo_pand</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.PU850</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    
+    <!-- Legacy AppTheme for compatibility -->
+    <style name="AppTheme" parent="Theme.PU850" />
+
+    <!-- Alert Dialog Style -->
+    <style name="AlertDialogStyle" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="android:windowBackground">@drawable/rounded_dialog</item>
-        <item name="android:colorAccent">@color/colorAccent</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorSecondary">@color/colorAccent</item>
         <item name="android:textColor">@color/colorForeground</item>
         <item name="android:textColorPrimary">@color/colorForeground</item>
         <item name="android:fontFamily">@font/iransans</item>
@@ -43,46 +83,38 @@
         <item name="android:textAppearanceLarge">@style/TextAppearanceLarge</item>
     </style>
 
-    <style name="ProgressDialogStyle" parent="Theme.AppCompat.Light.Dialog">
+    <!-- Progress Dialog Style -->
+    <style name="ProgressDialogStyle" parent="ThemeOverlay.Material3.Dialog">
         <item name="android:windowBackground">@drawable/rounded_dialog</item>
-        <item name="android:colorAccent">@color/colorAccent</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
         <item name="android:textColor">@color/colorForeground</item>
         <item name="android:textColorPrimary">@color/colorForeground</item>
-        <item name="android:indeterminateTint">@color/colorAccent</item>
+        <item name="android:indeterminateTint">@color/colorPrimary</item>
         <item name="android:fontFamily">@font/iransans</item>
         <item name="android:layoutDirection">locale</item>
-        <item name="android:textAppearanceSmall">@style/TextAppearanceSmall</item>
-        <item name="android:textAppearanceMedium">@style/TextAppearanceMedium</item>
-        <item name="android:textAppearanceLarge">@style/TextAppearanceLarge</item>
     </style>
 
-    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+    <!-- Bottom Sheet Dialog Theme -->
+    <style name="BottomSheetDialogTheme" parent="ThemeOverlay.Material3.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
     </style>
 
-    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+    <style name="BottomSheetStyle" parent="Widget.Material3.BottomSheet.Modal">
         <item name="android:background">@drawable/rounded_dialog_bottom</item>
-        <item name="android:colorAccent">@color/colorBackground</item>
+        <item name="backgroundTint">@color/elevatedBackground</item>
         <item name="android:textColor">@color/colorForeground</item>
-        <item name="android:textColorPrimary">@color/colorForeground</item>
-        <item name="android:indeterminateTint">@color/colorAccent</item>
         <item name="android:fontFamily">@font/iransans</item>
-        <item name="android:layoutDirection">locale</item>
-        <item name="android:textAppearanceSmall">@style/TextAppearanceSmall</item>
-        <item name="android:textAppearanceMedium">@style/TextAppearanceMedium</item>
-        <item name="android:textAppearanceLarge">@style/TextAppearanceLarge</item>
     </style>
 
+    <!-- Number Picker Style -->
     <style name="NumberPickerStyle">
         <item name="android:windowBackground">@color/colorBackground</item>
-        <item name="android:textColorPrimary">@color/colorForeground</item> <!-- text color -->
-        <item name="colorControlNormal">@color/colorAccent</item> <!-- divider color -->
+        <item name="android:textColorPrimary">@color/colorForeground</item>
+        <item name="colorControlNormal">@color/colorPrimary</item>
         <item name="android:fontFamily">@font/iransans</item>
-        <item name="android:textAppearanceSmall">@style/TextAppearanceSmall</item>
-        <item name="android:textAppearanceMedium">@style/TextAppearanceMedium</item>
-        <item name="android:textAppearanceLarge">@style/TextAppearanceLarge</item>
     </style>
 
+    <!-- Progress Bar Style -->
     <style name="ProgressBarHorizontalStyle" parent="Widget.AppCompat.ProgressBar.Horizontal">
         <item name="android:progressDrawable">@drawable/progress_horizontal</item>
         <item name="android:indeterminateDrawable">@drawable/progress_horizontal_indeterminate</item>
@@ -90,49 +122,73 @@
         <item name="android:maxHeight">20dip</item>
         <item name="trackThickness">15dip</item>
         <item name="trackCornerRadius">5dip</item>
-        <item name="android:scaleY">1</item>
-        <item name="android:layout_height">20dp</item>
     </style>
 
-    <style name="AppTheme.EditText" parent="Theme.AppCompat.Dialog.Alert">
-        <item name="colorPrimary">@color/colorBackground</item>
-        <item name="colorPrimaryDark">@color/colorForeground</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="colorError">@color/colorError</item>
-        <item name="android:disabledAlpha">0.6</item>
-        <item name="android:textColorPrimary">@color/colorForeground</item>
+    <!-- Edit Text Theme -->
+    <style name="AppTheme.EditText" parent="ThemeOverlay.Material3.TextInputEditText">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnSurface">@color/colorForeground</item>
         <item name="android:textColorHint">@color/colorGrayText</item>
         <item name="android:fontFamily">@font/iransans</item>
-        <item name="fontFamily">@font/iransans</item>
-        <item name="android:textAlignment">gravity</item>
-        <item name="android:textDirection">locale</item>
-        <item name="android:textViewStyle">@style/TextViewStyle</item>
     </style>
 
-    <style name="TextAppearance" parent="TextAppearance.AppCompat">
+    <!-- Text Appearances -->
+    <style name="TextAppearance" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:fontFamily">@font/iransans</item>
     </style>
 
-    <style name="TextAppearanceSmall" parent="TextAppearance.AppCompat.Small">
+    <style name="TextAppearanceSmall" parent="TextAppearance.Material3.BodySmall">
         <item name="android:fontFamily">@font/iransans</item>
     </style>
 
-    <style name="TextAppearanceMedium" parent="TextAppearance.AppCompat.Medium">
+    <style name="TextAppearanceMedium" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:fontFamily">@font/iransans</item>
     </style>
 
-    <style name="TextAppearanceLarge" parent="TextAppearance.AppCompat.Large">
+    <style name="TextAppearanceLarge" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:fontFamily">@font/iransans</item>
     </style>
 
-    <style name="ButtonStyle" parent="Widget.AppCompat.Button">
-        <item name="textAllCaps">false</item>
+    <!-- Button Styles -->
+    <style name="Widget.PU850.Button" parent="Widget.Material3.Button">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">@font/iransans</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+    
+    <style name="Widget.PU850.Button.Filled" parent="Widget.Material3.Button">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">@font/iransans</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="backgroundTint">@color/colorPrimary</item>
+    </style>
+    
+    <style name="Widget.PU850.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">@font/iransans</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="strokeColor">@color/colorPrimary</item>
+    </style>
+    
+    <style name="Widget.PU850.Button.Text" parent="Widget.Material3.Button.TextButton">
         <item name="android:textAllCaps">false</item>
         <item name="android:fontFamily">@font/iransans</item>
     </style>
 
+    <!-- Button Style (legacy) -->
+    <style name="ButtonStyle" parent="Widget.PU850.Button" />
+
+    <!-- Text View Style -->
     <style name="TextViewStyle" parent="Widget.AppCompat.TextView">
         <item name="android:fontFamily">@font/iransans</item>
+    </style>
+
+    <!-- Action Card Button Style -->
+    <style name="ActionCardStyle">
+        <item name="android:background">@drawable/bg_action_card</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:elevation">4dp</item>
+        <item name="android:layout_margin">8dp</item>
     </style>
 
 </resources>

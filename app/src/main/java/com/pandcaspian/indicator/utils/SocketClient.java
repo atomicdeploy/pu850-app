@@ -1,15 +1,14 @@
 package com.pandcaspian.indicator.utils;
 
-import android.app.ProgressDialog;
+import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.util.Log;
-import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
-import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
-import androidx.core.content.res.ResourcesCompat;
+import androidx.core.content.ContextCompat;
 
 import com.pandcaspian.indicator.MainActivity;
 import com.pandcaspian.indicator.R;
@@ -24,7 +23,7 @@ public class SocketClient extends WebSocketClient {
 
 	MainActivity ctx;
 
-	ProgressDialog progressDialog;
+	AlertDialog progressDialog;
 
 	public SocketClient(URI serverURI, MainActivity _ctx) {
 		super(serverURI);
@@ -36,32 +35,39 @@ public class SocketClient extends WebSocketClient {
 		// Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("192.168.1.30", 8888));
 		// setProxy(proxy);
 
-		progressDialog = new ProgressDialog(new ContextThemeWrapper(ctx, R.style.ProgressDialogStyle));
-		progressDialog.setTitle(ctx.getString(R.string.str_connecting_to_device));
-		progressDialog.setMessage(ctx.getString(R.string.str_wait_until_operation_finished));
-		progressDialog.setCancelable(true);
-		progressDialog.setIndeterminate(true);
-		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-		// progressDialog.setIndeterminateDrawable(ctx.getResources().getDrawable(R.drawable.ic_icon_wait));
-		progressDialog.setIcon(R.drawable.ic_icon_wifi);
-		progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener()
-		{
-			@Override
-			public void onCancel(DialogInterface dialog) {
-				// ctx.onWsError(new Exception(""));
-				closeConnection(0, ""); // close(0, "");
-				progressDialog.dismiss();
-			}
-		});
-
-		progressDialog.setButton(DialogInterface.BUTTON_NEGATIVE, ctx.getString(R.string.Cancel), new DialogInterface.OnClickListener() {
+		// Create modern progress dialog using AlertDialog
+		AlertDialog.Builder builder = new AlertDialog.Builder(ctx, R.style.ProgressDialogStyle);
+		
+		// Create custom view with progress indicator
+		View dialogView = LayoutInflater.from(ctx).inflate(android.R.layout.simple_list_item_1, null);
+		TextView textView = dialogView.findViewById(android.R.id.text1);
+		textView.setText(ctx.getString(R.string.str_wait_until_operation_finished));
+		textView.setPadding(48, 48, 48, 48);
+		
+		builder.setTitle(ctx.getString(R.string.str_connecting_to_device));
+		builder.setView(dialogView);
+		builder.setIcon(R.drawable.ic_icon_wifi);
+		builder.setCancelable(true);
+		builder.setNegativeButton(ctx.getString(R.string.Cancel), new DialogInterface.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
-				progressDialog.cancel();
+				closeConnection(0, "");
+				dialog.dismiss();
+			}
+		});
+		builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+			@Override
+			public void onCancel(DialogInterface dialog) {
+				closeConnection(0, "");
 			}
 		});
 
-		progressDialog.getWindow().setBackgroundDrawable(ctx.getResources().getDrawable(R.drawable.rounded_dialog));
+		progressDialog = builder.create();
+		if (progressDialog.getWindow() != null) {
+			progressDialog.getWindow().setBackgroundDrawable(
+				ContextCompat.getDrawable(ctx, R.drawable.rounded_dialog)
+			);
+		}
 
 		progressDialog.show();
 	}
